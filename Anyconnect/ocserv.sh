@@ -103,7 +103,6 @@ wget --no-check-certificate -qO "/etc/ocserv/group/Route" "https://raw.githubuse
 wget --no-check-certificate -qO "/etc//ocserv/ssl/ca.tmpl" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/ca.tmpl"
 wget --no-check-certificate -qO "/etc/ocserv/ssl/user.tmpl" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/user.tmpl"
 wget --no-check-certificate -qO "/etc/ocserv/ssl/client.sh" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/client.sh"
-
 wget --no-check-certificate -qO "/etc/ocserv/iptables.rules" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/iptables.rules"
 wget --no-check-certificate -qO "/etc/ocserv/ocserv.conf" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.conf"
 wget --no-check-certificate -qO "/etc/ocserv/ocserv.d" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.d"
@@ -111,17 +110,19 @@ wget --no-check-certificate -qO "/etc/ocserv/profile.xml" "https://raw.githubuse
 
 wget --no-check-certificate -qO "/etc/ocserv/server-cert.pem" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server-cert.pem"
 wget --no-check-certificate -qO "/etc/ocserv/server-key.pem" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server-key.pem"
+wget --no-check-certificate -qO "/etc/ocserv/ssl/ca-cert.pem" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/ca-cert.pem"
+
 # Diffie-Hellman
 certtool --generate-dh-params --outfile /etc/ocserv/dh.pem
 
 # CA
-#openssl genrsa -out /etc/ocserv/template/ca-key.pem 2048
-#certtool --generate-self-signed --hash SHA256 --load-privkey /etc/ocserv/template/ca-key.pem --template /etc/ocserv/template/ca.tmpl --outfile /etc/ocserv/template/ca-cert.pem
-#cp -rf /etc/ocserv/template/ca-cert.pem /etc/ocserv/ca.cert.pem
+#openssl genrsa -out /etc/ocserv/ssl/ca-key.pem 2048
+#certtool --generate-self-signed --hash SHA256 --load-privkey /etc/ocserv/ssl/ca-key.pem --template /etc/ocserv/ssl/ca.tmpl --outfile /etc/ocserv/ssl/ca-cert.pem
+cp -rf /etc/ocserv/ssl/ca-cert.pem /etc/ocserv/ca-cert.pem
 
 # Server
-# server cert file: /etc/ocserv/server.cert.pem
-# server cert key file: /etc/ocserv/server.key.pem
+# server cert file: /etc/ocserv/server-cert.pem
+# server cert key file: /etc/ocserv/server-key.pem
 
 # Default User
 ## openssl passwd Moeclub
