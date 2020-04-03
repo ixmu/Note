@@ -95,26 +95,27 @@ fi
 [ -e /etc/ocserv ] && rm -rf /etc/ocserv
 mkdir -p /etc/ocserv
 mkdir -p /etc/ocserv/group
-mkdir -p /etc/ocserv/template
+mkdir -p /etc/ocserv/ssl
 
-wget --no-check-certificate -qO "/etc/ocserv/group/Default" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/group/Default"
-wget --no-check-certificate -qO "/etc/ocserv/group/NoRoute" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/group/NoRoute"
-wget --no-check-certificate -qO "/etc/ocserv/group/Route" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/group/Route"
-wget --no-check-certificate -qO "/etc//ocserv/template/ca.tmpl" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/template/ca.tmpl"
-wget --no-check-certificate -qO "/etc/ocserv/template/user.tmpl" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/template/user.tmpl"
-wget --no-check-certificate -qO "/etc/ocserv/template/client.sh" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/template/client.sh"
-wget --no-check-certificate -qO "/etc/ocserv/iptables.rules" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/iptables.rules"
-wget --no-check-certificate -qO "/etc/ocserv/ocserv.conf" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/ocserv.conf"
-wget --no-check-certificate -qO "/etc/ocserv/ocserv.d" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/ocserv.d"
-wget --no-check-certificate -qO "/etc/ocserv/profile.xml" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/profile.xml"
+wget --no-check-certificate -qO "/etc/ocserv/group/Default" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/group/Default"
+wget --no-check-certificate -qO "/etc/ocserv/group/NoRoute" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/group/NoRoute"
+wget --no-check-certificate -qO "/etc/ocserv/group/Route" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/group/Route"
+wget --no-check-certificate -qO "/etc//ocserv/ssl/ca.tmpl" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/ca.tmpl"
+wget --no-check-certificate -qO "/etc/ocserv/ssl/user.tmpl" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/user.tmpl"
+wget --no-check-certificate -qO "/etc/ocserv/ssl/client.sh" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ssl/client.sh"
+
+wget --no-check-certificate -qO "/etc/ocserv/iptables.rules" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/iptables.rules"
+wget --no-check-certificate -qO "/etc/ocserv/ocserv.conf" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.conf"
+wget --no-check-certificate -qO "/etc/ocserv/ocserv.d" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.d"
+wget --no-check-certificate -qO "/etc/ocserv/profile.xml" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml"
 
 # Diffie-Hellman
 certtool --generate-dh-params --outfile /etc/ocserv/dh.pem
 
 # CA
-openssl genrsa -out /etc/ocserv/template/ca-key.pem 2048
-certtool --generate-self-signed --hash SHA256 --load-privkey /etc/ocserv/template/ca-key.pem --template /etc/ocserv/template/ca.tmpl --outfile /etc/ocserv/template/ca-cert.pem
-cp -rf /etc/ocserv/template/ca-cert.pem /etc/ocserv/ca.cert.pem
+#openssl genrsa -out /etc/ocserv/template/ca-key.pem 2048
+#certtool --generate-self-signed --hash SHA256 --load-privkey /etc/ocserv/template/ca-key.pem --template /etc/ocserv/template/ca.tmpl --outfile /etc/ocserv/template/ca-cert.pem
+#cp -rf /etc/ocserv/template/ca-cert.pem /etc/ocserv/ca.cert.pem
 
 # Server
 # server cert file: /etc/ocserv/server.cert.pem
@@ -122,7 +123,7 @@ cp -rf /etc/ocserv/template/ca-cert.pem /etc/ocserv/ca.cert.pem
 
 # Default User
 ## openssl passwd Moeclub
-echo "MoeClub:Default:zeGEF25ZQQfDo" >/etc/ocserv/ocpasswd
+echo "ziran:Default:zeGEF25ZQQfDo" >/etc/ocserv/ocpasswd
 
 chown -R root:root /etc/ocserv
 chmod -R a+x /etc/ocserv
