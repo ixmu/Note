@@ -109,6 +109,8 @@ wget --no-check-certificate -qO "/etc/ocserv/ocserv.conf" "https://raw.githubuse
 wget --no-check-certificate -qO "/etc/ocserv/ocserv.d" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.d"
 wget --no-check-certificate -qO "/etc/ocserv/profile.xml" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml"
 
+wget --no-check-certificate -qO "/etc/ocserv/server-cert.pem" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server-cert.pem"
+wget --no-check-certificate -qO "/etc/ocserv/server-key.pem" "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server-key.pem"
 # Diffie-Hellman
 certtool --generate-dh-params --outfile /etc/ocserv/dh.pem
 
