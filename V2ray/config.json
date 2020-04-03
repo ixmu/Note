@@ -1,0 +1,16 @@
+{
+    "Mysql_Host": "sql.wanvi.net",
+    "Mysql_Port": 3306,
+    "Mysql_User": "MyV2Ray",
+    "Mysql_Password": "SiXMrL6Tf2OlzF5b",
+    "Mysql_Db": "MyV2Ray",
+    "Mysql_TLS": "false",
+    "Mysql_MaxOpenConns": 100,
+    "Mysql_MaxIdleConns": 10,
+    "V2rayClientAddr": "127.0.0.1:8301",
+    "V2rayTag": "proxy",
+    "Email": "@test.com",
+    "AlterID": 64,
+    "Level": 1,
+    "CheckRate": 64
+}
