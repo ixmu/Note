@@ -68,11 +68,11 @@ EOF
 cat >/etc/dnsmasq.conf<<EOF
 except-interface=${ifname}
 conf-dir=/etc/dnsmasq.d,*.conf
-dhcp-range=192.168.8.2,192.168.8.254,255.255.255.0,24h
-dhcp-option-force=option:router,192.168.8.1
-dhcp-option-force=option:dns-server,192.168.8.1
-dhcp-option-force=option:netbios-ns,192.168.8.1
-listen-address=127.0.0.1,192.168.8.1
+dhcp-range=172.16.100.2,172.16.100.254,255.255.255.0,24h
+dhcp-option-force=option:router,172.16.100.1
+dhcp-option-force=option:dns-server,172.16.100.1
+dhcp-option-force=option:netbios-ns,172.16.100.1
+listen-address=127.0.0.1,172.16.100.1
 domain-needed
 bind-dynamic
 all-servers
