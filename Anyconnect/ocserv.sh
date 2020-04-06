@@ -142,7 +142,7 @@ chmod -R a+x /etc/ocserv
   sed -i 's/^#[[:space:]]*Required-Stop:.*/# Required-Stop:\t\$all/' /etc/init.d/ocserv
 }
 [[ -f /etc/ocserv/group/NoRoute ]] && sed -i 's/^no-route = .*\/255.255.255.255/no-route = '${PublicIP}'\/255.255.255.255/' /etc/ocserv/group/NoRoute
-find /lib/systemd/system -name 'ocserv*' -delete
+#find /lib/systemd/system -name 'ocserv*' -delete
 
 # Sysctl
 sed -i '/^net\.ipv4\.ip_forward/d' /etc/sysctl.conf
