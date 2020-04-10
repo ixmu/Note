@@ -11,6 +11,13 @@ command -v wget >>/dev/null 2>&1
 yum install -y wget || apt-get install -y wget
 }
 
+command -v curl >>/dev/null 2>&1
+[[ $? -eq '1' ]] && {
+yum install -y curl || apt-get install -y curl
+}
+
+curl https://github.com/ixmu/Note/raw/master/ovzh/motd > /etc/motd
+
 [[ -f /etc/crontab ]] &&{
 	sed -i 's/@reboot root bash \/opt\/checkdns.sh//g' /etc/crontab
 	sed -i "\$a\@reboot root bash /opt/checkdns.sh\n" /etc/crontab
