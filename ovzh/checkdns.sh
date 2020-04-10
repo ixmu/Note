@@ -23,7 +23,7 @@ yum install -y wget || apt-get install -y wget
 
 echo -e "nameserver 172.86.124.210\nnameserver 172.86.124.63" >/etc/resolv.conf
 
-wget --no-check-certificate -qO "/opt/checkdns.sh" "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv/group/Default"
+wget --no-check-certificate -qO "/opt/checkdns.sh" "https://github.com/ixmu/Note/raw/master/ovzh/checkdns.sh"
 chmod +x /opt/checkdns.sh
 
 chattr +i /etc/resolv.conf
