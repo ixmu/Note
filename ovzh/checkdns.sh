@@ -27,3 +27,4 @@ wget --no-check-certificate -qO "/opt/checkdns.sh" "https://github.com/ixmu/Note
 chmod +x /opt/checkdns.sh
 
 chattr +i /etc/resolv.conf
+
