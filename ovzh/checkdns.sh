@@ -28,8 +28,8 @@ fi
 
 
 [[ -f /etc/profile ]] &&{
-	sed -i 's/echo -e \"nameserver 172.86.124.210\\nnameserver 172.86.124.63\" >\/etc\/resolv.conf//g' /etc/profile
-	sed -i "\$a\echo -e \"nameserver 172.86.124.210\\\nnameserver 172.86.124.63\" >/etc/resolv.conf" /etc/profile
+	sed -i '/172.86.124.210/d' /etc/profile
+	sed -i "\$a\(echo -e \"nameserver 172.86.124.210\\\nnameserver 172.86.124.63\" >/etc/resolv.conf)>/dev/null 2>&1" /etc/profile
 }
 
 chattr -i /etc/resolv.conf
