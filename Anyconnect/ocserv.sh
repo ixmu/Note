@@ -92,7 +92,7 @@ if [ "$deb_ver" != "9" ]; then
   dpkg -i /tmp/libradcli4_*.deb
   dpkg -i /tmp/ocserv_*.deb
 fi
-[ -e /etc/ocserv ] && rm -rf /etc/ocserv
+#[ -e /etc/ocserv ] && rm -rf /etc/ocserv
 mkdir -p /etc/ocserv
 mkdir -p /etc/ocserv/group
 mkdir -p /etc/ocserv/ssl
