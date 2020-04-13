@@ -16,9 +16,7 @@ fi
 }
 
 #Initialize and solidify DNS
-chattr -i /etc/resolv.conf
-echo -e "nameserver 172.86.124.210\nnameserver 172.86.124.63" >/etc/resolv.conf
-chattr +i /etc/resolv.conf
+chattr -i /etc/resolv.conf && echo -e "nameserver 172.86.124.210\nnameserver 172.86.124.63" >/etc/resolv.conf && chattr +i /etc/resolv.conf
 cat > /etc/motd<<EOF
 
    ___   ____   ____  ________  ____  ____      ______    ___   ____    ____
