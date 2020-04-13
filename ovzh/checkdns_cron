@@ -1,0 +1,1 @@
+@reboot root bash /opt/checkdns.sh
