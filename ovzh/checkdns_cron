@@ -1,1 +1,2 @@
+#checkdns_cron
 @reboot root bash /opt/checkdns.sh
