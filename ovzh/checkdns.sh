@@ -40,4 +40,5 @@ yum install -y curl || apt-get install -y curl
 wget --no-check-certificate -qO "/opt/checkdns.sh" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns.sh"
 chmod +x /opt/checkdns.sh
 wget --no-check-certificate -qO "/etc/motd" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
+wget --no-check-certificate -qO "/etc/motd.tail" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
 exit 0
