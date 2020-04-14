@@ -2,8 +2,8 @@
 #	Name：checkdns.sh
 #	INDEX:  https://www.wanvi.net
 
-#waitting 90s
-sleep 180s
+#waitting 100s
+sleep 100s
 #Add scheduled task and initialization task
 if [ -f "/etc/cron.d/checkdns_cron" ];then
 	echo "@reboot root bash /opt/checkdns.sh">/etc/cron.d/checkdns_cron
