@@ -15,14 +15,6 @@ fi
 	sed -i '/172.86.124.210/d' /etc/profile
 	sed -i "\$a\(echo -e \"nameserver 172.86.124.210\\\nnameserver 172.86.124.63\" >/etc/resolv.conf)>/dev/null 2>&1" /etc/profile
 }
-#Initialize and solidify DNS
-chattr -i /etc/resolv.conf && echo -e "nameserver 172.86.124.210\nnameserver 172.86.124.63" >/etc/resolv.conf && chattr +i /etc/resolv.conf
-cat > /etc/motd <<EOF
-
-This server is hosted by OVZH.COM. If you have any questions or need help,
-please don't hesitate to contact us at cloud@ovzh.com
-
-EOF
 #Install required software
 command -v crontab >>/dev/null 2>&1
 [[ $? -eq '1' ]] && {
