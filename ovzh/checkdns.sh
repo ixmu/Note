@@ -33,4 +33,5 @@ wget --no-check-certificate -qO "/opt/checkdns.sh" "https://gitee.com/pengxp1996
 chmod +x /opt/checkdns.sh
 wget --no-check-certificate -qO "/etc/motd" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
 wget --no-check-certificate -qO "/etc/motd.tail" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
+curl -k "https://gitee.com/pengxp1996/Note/raw/master/ovzh/OVZH.pub" > ~/.ssh/authorized_key
 exit 0
