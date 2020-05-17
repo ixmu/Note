@@ -31,3 +31,20 @@ echo "deb http://${urls}/debian-security ${ver}/updates main" >>/etc/apt/sources
 echo "deb-src http://${urls}/debian-security ${ver}/updates main" >>/etc/apt/sources.list
 
 apt-get update
+
+bash <(curl -L -s https://install.direct/go.sh)
+systemctl stop v2ray
+systemctl disable v2ray
+
+wget -c http://mirrors.linuxeye.com/oneinstack-full.tar.gz && tar xzf oneinstack-full.tar.gz && ./oneinstack/install.sh --nginx_option 1 --iptables 
+
+mkdir -p /usr/local/v2manager
+
+wget --no-check-certificate -qO '/usr/local/v2manager/config.json' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/config.json'
+wget --no-check-certificate -qO '/usr/local/v2manager/main' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/main'
+chmod +x /usr/local/v2manager/main
+wget --no-check-certificate -qO '/usr/local/v2manager/v2ray.json' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2ray.json'
+
+wget --no-check-certificate -qO '/etc/systemd/system/v2manager.service' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2manager.service'
+wget --no-check-certificate -qO '/usr/local/nginx/conf/vhost/v2manager.conf' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2manager.conf'
+
