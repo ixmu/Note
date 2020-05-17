@@ -15,6 +15,10 @@ else
   exit 1
 fi
 
+#init
+domain1="sgp.ykpaoschool.vip"
+read -p "输入域名:" domain2
+
 if [ "$deb_ver" == "9" ]; then
   bash <(wget --no-check-certificate -qO- 'https://raw.githubusercontent.com/MoeClub/BBR/master/install.sh')
   wget --no-check-certificate -qO '/tmp/tcp_bbr.ko' 'https://moeclub.org/attachment/LinuxSoftware/bbr/tcp_bbr.ko'
@@ -31,6 +35,7 @@ echo "deb http://${urls}/debian-security ${ver}/updates main" >>/etc/apt/sources
 echo "deb-src http://${urls}/debian-security ${ver}/updates main" >>/etc/apt/sources.list
 
 apt-get update
+apt-get install -y bash-completion
 
 bash <(curl -L -s https://install.direct/go.sh)
 systemctl stop v2ray
@@ -46,5 +51,9 @@ chmod +x /usr/local/v2manager/main
 wget --no-check-certificate -qO '/usr/local/v2manager/v2ray.json' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2ray.json'
 
 wget --no-check-certificate -qO '/etc/systemd/system/v2manager.service' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2manager.service'
+
+mkdir -p /usr/local/nginx/conf/vhost/
 wget --no-check-certificate -qO '/usr/local/nginx/conf/vhost/v2manager.conf' 'https://raw.githubusercontent.com/ixmu/Note/master/v2manager/v2manager.conf'
+
+sed -ie "s/$domain1/$domain2/g" /usr/local/nginx/conf/vhost/v2manager.conf
 
