@@ -38,6 +38,7 @@ apt-get update
 apt-get install -y bash-completion
 
 bash <(curl -L -s https://install.direct/go.sh)
+
 systemctl stop v2ray
 systemctl disable v2ray
 
