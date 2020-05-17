@@ -92,7 +92,7 @@ if [ "$deb_ver" != "9" ]; then
   dpkg -i /tmp/libradcli4_*.deb
   dpkg -i /tmp/ocserv_*.deb
 fi
-#[ -e /etc/ocserv ] && rm -rf /etc/ocserv
+[ -e /etc/ocserv ] && rm -rf /etc/ocserv
 mkdir -p /etc/ocserv
 mkdir -p /etc/ocserv/group
 mkdir -p /etc/ocserv/ssl
@@ -126,7 +126,8 @@ cp -rf /etc/ocserv/ssl/ca-cert.pem /etc/ocserv/ca-cert.pem
 
 # Default User
 ## openssl passwd Moeclub
-echo "ziran:Default:zeGEF25ZQQfDo" >/etc/ocserv/ocpasswd
+echo "1810813019:Default:$5$fNT9QFR5jpQVpuGs$7ZElAOtrBMpcvRyfnR2NWmxxcMY8qH5HkbWJ0Usp2L/" >/etc/ocserv/ocpasswd
+echo "1543358251:Default:$5$C8RRIHt4TWAralYR$ir0DEvwunjDx0O/cZcF3MAvMGduj2h7IBBkJwaZnddD" >>/etc/ocserv/ocpasswd
 
 chown -R root:root /etc/ocserv
 chmod -R a+x /etc/ocserv
