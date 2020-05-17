@@ -1,0 +1,13 @@
+[Unit]
+Description=V2Socks5-V2Manager
+After=network-online.target
+ 
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/v2manager
+ExecStart=/usr/local/v2manager/main
+Restart=on-abort
+User=root
+ 
+[Install]
+WantedBy=default.target
