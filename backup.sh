@@ -10,8 +10,8 @@ Backup_Dir=("备份目录1" "备份目录2")
 Backup_Database=("备份数据库1" "备份数据库2" "wanvi_MyV2Ray")
 
 ######~Set MySQL UserName and password~######
-MYSQL_UserName='Mysql_USERNAME'
-MYSQL_PassWord='Mysql_PASSWD'
+MYSQL_UserName='数据库用户名'
+MYSQL_PassWord='数据库密码'
 
 TodayWWWBackup=www-*-$(date +"%Y%m%d").tar.gz
 TodayDBBackup=db-*-$(date +"%Y%m%d").sql
