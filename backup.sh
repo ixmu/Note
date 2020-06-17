@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#Scription:1、目录打包、数据库导出
+           2、文件自动上传到OSS
+           3、本地保留15天，OSS保留60天
+
 
 Backup_Home="/home/backup/"
 MySQL_Dump="/usr/local/mariadb/bin/mysqldump"
