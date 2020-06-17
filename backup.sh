@@ -51,13 +51,13 @@ for db in ${Backup_Database[@]};do
 done
 
 echo "Upload files and databases to OSS..."
-/usr/local/bin/ossutil cp -rf ${Backup_Home}$(date +"%Y-%m-%d") oss://natural64/$(date +"%Y-%m-%d")
+/usr/local/bin/ossutil cp -rf ${Backup_Home}$(date +"%Y-%m-%d") oss://bk/$(date +"%Y-%m-%d")
 
 echo "Delete old backup files stored locally..."
 rm -rf ${Backup_Home}$(date -d -15day +"%Y-%m-%d")/
 
 echo "Delete old oss backup files"
-/usr/local/bin/ossutil rm -rf oss://natural64/$(date -d -60day +"%Y-%m-%d")
+/usr/local/bin/ossutil rm -rf oss://bk/$(date -d -60day +"%Y-%m-%d")
 
 
 echo "complete."
