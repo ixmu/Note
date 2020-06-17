@@ -1,0 +1,13 @@
+[Unit]
+Description=v2raym
+After=network-online.target
+ 
+[Service]
+Type=simple
+WorkingDirectory=/root/
+ExecStart=/root/main
+Restart=on-abort    
+User=root 
+ 
+[Install]
+WantedBy=default.target
