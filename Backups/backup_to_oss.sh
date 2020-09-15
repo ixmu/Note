@@ -7,21 +7,20 @@
 db_install_dir=/usr/local/mariadb
 
 #  备份存储临时目录
-backup_dir=/home/backup
+backup_dir=/date/backup
 
 #  网站所在目录
-wwwroot_dir=/home/wwwroot
+wwwroot_dir=/date/wwwroot
 
 #   Mariadb/Mysql ROOT密码
-dbrootpwd=Vf58ujvprK2t0ghP
+dbrootpwd=
 
 #   OSS bucket 请提前完成oss配置
-oss_bucket=natural64
+oss_bucket=
 
 
-website_name=www.wanvi.net,shop.wanvi.net
-db_name=wanvi_wordpress,wanvi_whmcs
-
+website_name=web1,web2
+db_name=dbname1,dbname2
 
 
 [ ! -e "${backup_dir}" ] && mkdir -p ${backup_dir}
