@@ -10,7 +10,7 @@
 [ -d /root/.ssh/ ] && curl -Lso- https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
 [ ! -d /root/.ssh/ ] && mkdir /root/.ssh/ && curl -Lso- https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
 
-server ssh restart
+service ssh restart
 
 
 
