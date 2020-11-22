@@ -1,38 +1,67 @@
-#备份到谷歌云盘
-DB_GOOGLE_DRIVE_BK() {
-  for D in `echo ${db_name} | tr ',' ' '`
-  do
-    ./db_bk.sh ${D}
-    DB_GREP="DB_${D}_`date +%Y%m%d`"
-    DB_FILE=`ls -lrt ${backup_dir} | grep ${DB_GREP} | tail -1 | awk '{print $NF}'`
-        echo "数据库 ${D} 打包完成"
+#!/bin/bash
 
-    /usr/bin/rclone copy ${backup_dir}/${DB_FILE} GoogleDrive://`date +%F`/
-      echo "数据库 ${D} 打包上传完成"
-    if [ $? -eq 0 ]; then
-      /usr/bin/rclone purge GoogleDrive://`date +%F --date="${expired_days} days ago"`/
-      echo "数据库 ${D} ${expired_days}天前的备份文件（如果存在）删除完成"
-      [ -z "`echo ${backup_destination} | grep -ow 'local'`" ] && rm -f ${backup_dir}/${DB_FILE}
-    fi
-  done
+#Scription:1、目录打包、数据库导出
+           2、文件自动上传到OSS
+           3、本地保留15天，OSS保留60天
+
+
+Backup_Home="/home/backup/"
+MySQL_Dump="/usr/local/mariadb/bin/mysqldump"
+######~Set Directory you want to backup~######
+Backup_Dir=("备份目录1" "备份目录2")
+
+######~Set MySQL Database you want to backup~######
+Backup_Database=("备份数据库1" "备份数据库2" "wanvi_MyV2Ray")
+
+######~Set MySQL UserName and password~######
+MYSQL_UserName='数据库用户名'
+MYSQL_PassWord='数据库密码'
+
+TodayWWWBackup=www-*-$(date +"%Y%m%d").tar.gz
+TodayDBBackup=db-*-$(date +"%Y%m%d").sql
+OldWWWBackup=www-*-$(date -d -15day +"%Y%m%d").tar.gz
+OldDBBackup=db-*-$(date -d -15day +"%Y%m%d").sql
+
+Backup_Dir()
+{
+    Backup_Path=$1
+    Dir_Name=`echo ${Backup_Path##*/}`
+    Pre_Dir=`echo ${Backup_Path}|sed 's/'${Dir_Name}'//g'`
+    tar zcf ${Backup_Home}$(date +"%Y-%m-%d")/www-${Dir_Name}-$(date +"%Y%m%d").tar.gz -C ${Pre_Dir} ${Dir_Name}
 }
-WEB_GOOGLE_DRIVE_BK() {
-  for W in `echo ${website_name} | tr ',' ' '`
-  do
-    [ ! -e "${wwwroot_dir}/${WebSite}" ] && { echo "[${wwwroot_dir}/${WebSite}] not exist"; break; }
-    PUSH_FILE="${backup_dir}/Web_${W}_$(date +%Y%m%d_%H).tgz"
-    if [ ! -e "${PUSH_FILE}" ]; then
-      pushd ${wwwroot_dir} > /dev/null
-      tar czf ${PUSH_FILE} ./$W
-      popd > /dev/null
-    fi
-        echo "站点 $W 打包完成"
-    /usr/bin/rclone copy  ${PUSH_FILE} GoogleDrive://`date +%F`/
-        echo "站点 $W 打包上传完成"
-    if [ $? -eq 0 ]; then
-      /usr/bin/rclone purge GoogleDrive://`date +%F --date="${expired_days} days ago"`/
-          echo "站点 $W ${expired_days}天前的备份文件（如果存在删除完成"
-      [ -z "`echo ${backup_destination} | grep -ow 'local'`" ] && rm -f ${PUSH_FILE}
-    fi
-  done
+Backup_Sql()
+{
+    ${MySQL_Dump} -u$MYSQL_UserName -p$MYSQL_PassWord $1 > ${Backup_Home}$(date +"%Y-%m-%d")/db-$1-$(date +"%Y%m%d").sql
 }
+
+if [ ! -f ${MySQL_Dump} ]; then  
+    echo "mysqldump command not found.please check your setting."
+    exit 1
+fi
+
+if [ ! -d ${Backup_Home}$(date +"%Y-%m-%d")/ ];then
+  mkdir -p ${Backup_Home}$(date +"%Y-%m-%d")/
+fi
+
+
+echo "Backup website files..."
+for dd in ${Backup_Dir[@]};do
+    Backup_Dir ${dd}
+done
+
+echo "Backup Databases..."
+for db in ${Backup_Database[@]};do
+    Backup_Sql ${db}
+done
+
+echo "Upload files and databases to OSS..."
+/usr/local/bin/ossutil cp -rf ${Backup_Home}$(date +"%Y-%m-%d") oss://bk/$(date +"%Y-%m-%d")
+
+echo "Delete old backup files stored locally..."
+rm -rf ${Backup_Home}$(date -d -15day +"%Y-%m-%d")/
+
+echo "Delete old oss backup files"
+/usr/local/bin/ossutil rm -rf oss://bk/$(date -d -60day +"%Y-%m-%d")
+
+
+echo "complete."
