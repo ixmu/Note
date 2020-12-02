@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#尝试获取root权限
+sudo -i
 #检测用户
 [ $EUID -ne 0 ] && echo "Error:This script must be run as root!" && exit 1
 #设置ssh端口为22
