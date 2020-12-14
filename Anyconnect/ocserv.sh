@@ -1,5 +1,6 @@
 #!/bin/bash
 # Script by MoeClub.org
+# Custom Mmade In XlouusPeng
 
 [ $EUID -ne 0 ] && echo "Error:This script must be run as root!" && exit 1
 EthName=`cat /proc/net/dev |grep ':' |cut -d':' -f1 |sed 's/\s//g' |grep -iv '^lo\|^sit\|^stf\|^gif\|^dummy\|^vmnet\|^vir\|^gre\|^ipip\|^ppp\|^bond\|^tun\|^tap\|^ip6gre\|^ip6tnl\|^teql\|^ocserv\|^vpn' |sed -n '1p'`
@@ -47,7 +48,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv.tar 'https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_v0.12.3.tar'
+wget --no-check-certificate -4 -qO /tmp/ocserv.tar 'https://cdn.jsdelivr.net/gh/ixmu/Note@master/Anyconnect/build/ocserv_v1.1.1.tar'
 tar --overwrite -xvf /tmp/ocserv.tar -C /
 
 # server cert key file: /etc/ocserv/server.key.pem
@@ -92,6 +93,20 @@ fi
 #[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?Port .*/Port 9527/g" /etc/ssh/sshd_config;
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config;
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config;
+
+#Ocserv Configuration
+[ -f /etc/ocserv/ocserv.conf ] && sed -i "s/^#\?user-profile.*/user-profile \= \/etc\/ocserv\/profile\.xml/g" /etc/ocserv/ocserv.conf;
+[ -f /etc/ocserv/ocserv.conf ] && sed -i "s/^#\?output-buffer.*/output-buffer \= 64/g" /etc/ocserv/ocserv.conf;
+wget --no-check-certificate -4 -qO /etc/ocserv/profile.xml 'https://cdn.jsdelivr.net/gh/ixmu/Note@master/Anyconnect/ocserv/profile.xml'
+wget --no-check-certificate -4 -qO /etc/ocserv/ca.cert.pem 'https://www.ixmu.net/project/ocserv/ca.cert.pem'
+wget --no-check-certificate -4 -qO /etc/ocserv/server.key.pem 'https://www.ixmu.net/project/ocserv/server.key.pem'
+wget --no-check-certificate -4 -qO /etc/ocserv/server.cert.pem 'https://www.ixmu.net/project/ocserv/server.cert.pem'
+
+# Dnsmasq Configuration
+[ -f /etc/ocserv/ocserv.conf ] && sed -i "s/192\.168\.8/192\.168\.7/g" /etc/ocserv/ocserv.conf;
+[ -f /etc/dnsmasq.conf ] && sed -i "s/192\.168\.8/192\.168\.7/g" /etc/dnsmasq.conf;
+[ -f /etc/dnsmasq.conf ] && sed -i "s/server\=8\.8\.4\.4\#53/server\=120\.79\.152\.1\#10053/g" /etc/dnsmasq.conf;
+[ -f /etc/dnsmasq.conf ] && sed -i "s/server\=8\.8\.8\.8\#53/server\=39\.105\.8\.165\#10053/g" /etc/dnsmasq.conf;
 
 # Timezone
 cp -f /usr/share/zoneinfo/PRC /etc/localtime
