@@ -15,7 +15,7 @@ fi
 #允许root登录
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config;
 #禁止密码认证
-[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication no/g" /etc/ssh/sshd_config;
+#[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication no/g" /etc/ssh/sshd_config;
 #启用公钥认证
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/g" /etc/ssh/sshd_config;
 #设置公钥位置
