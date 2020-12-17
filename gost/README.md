@@ -1,17 +1,8 @@
 # GOST一键脚本使用指南
-***
-#### 感谢: 
-1. 感谢 @ginuerzh 大佬提供了如此优秀实用的软件，项目地址 `https://github.com/ginuerzh/gost` ，GOST功能强大使用简单，想要详细了解用法的朋友可以查看官方文档 `https://docs.ginuerzh.xyz/gost/`  
-2. 感谢 @风萧萧兮易水寒 大佬的原始脚本，本脚本的灵感与思路都来自此大佬的一键脚本，项目地址 `https://www.fiisi.com/?p=125` 
-***
-原脚本作者已在2020的暑期删库“跑路”，本人仅保存该脚本存档以备自用
-***
 > 脚本简介
 > > 适合懒人的超简单gost一键转发脚本:  
-> > `wget --no-check-certificate -O gost.sh https://cdn.jsdelivr.net/gh/ixmu/EasyGost@master/gost.sh && chmod +x gost.sh && ./gost.sh`  
+> > `wget --no-check-certificate -O gost.sh https://raw.githubusercontent.com/ixmu/Note/master/gost/gost.sh && chmod +x gost.sh && ./gost.sh`  
 > > 脚本由 @stsdustjc 制作，参考了 @风萧萧兮易水寒 大佬的一键脚本，主要实现了systemd及gost配置文件对gost进行管理，能够在不借助其他工具(如screen)的情况下实现多条转发规则同时生效。但功能性较弱，目前仅支持tcp+udp不加密转发, relay+tls加密转发, relay+tls解密对接转发。也算是能勉强保护一下裸奔的流量和搭建简单隧道的需求了。  
-> > 项目地址及帮助文档:  
-> > https://github.com/stsdust/BlueSkyXN 
 ***
 ## 本一键脚本适用人群  
 * 你只是想赶快用上gost进行流量转发，不想学习gost的详细配置方法，只想越简单越好  
@@ -23,7 +14,7 @@
 ***  
 ## 完整食用教程  
 * 启动脚本: 在已经运行过如下一键脚本的情况下  
-`wget --no-check-certificate -O gost.sh https://cdn.jsdelivr.net/gh/ixmu/EasyGost@master/gost.sh && chmod +x gost.sh && ./gost.sh`  
+`wget --no-check-certificate -O gost.sh https://raw.githubusercontent.com/ixmu/Note/master/gost/gost.sh && chmod +x gost.sh && ./gost.sh`  
 * 再次运行本脚本只需要输入`./gost.sh`回车即可  
 
 ***
