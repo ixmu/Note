@@ -105,8 +105,8 @@ function Install_ct()
     `mv gost-linux-"$bit"-"$ct_new_ver" gost`
     `mv gost /usr/bin/gost`
     `chmod -R 777 /usr/bin/gost`
-    `wget --no-check-certificate https://cdn.jsdelivr.net/gh/ixmu/EasyGost@master/gost.service && chmod -R 777 gost.service && mv gost.service /usr/lib/systemd/system`
-    `mkdir /etc/gost && wget --no-check-certificate https://cdn.jsdelivr.net/gh/ixmu/EasyGost@master/config.json && mv config.json /etc/gost && chmod -R 777 /etc/gost`
+    `wget --no-check-certificate https://raw.githubusercontent.com/ixmu/Note/master/gost/gost.service && chmod -R 777 gost.service && mv gost.service /usr/lib/systemd/system`
+    `mkdir /etc/gost && wget --no-check-certificate https://raw.githubusercontent.com/ixmu/Note/master/gost/config.json && mv config.json /etc/gost && chmod -R 777 /etc/gost`
     `systemctl enable gost && systemctl restart gost`
     echo "------------------------------"
     if test -a /usr/bin/gost -a /usr/lib/systemctl/gost.service -a /etc/gost/config.json;then
@@ -185,7 +185,7 @@ function read_d_ip()
     echo -e "------------------------------------------------------------------"
     echo -e "请问你要将本机从${flag_b}接收到的流量转发向哪个IP或域名?"
     echo -e "注: IP既可以是[远程机器/当前机器]的公网IP, 也可是以本机本地回环IP(即127.0.0.1)"
-    echo -e "    具体IP地址的填写, 取决于接收该流量的服务正在监听的IP(详见: https://github.com/stsdust/EasyGost)"
+    echo -e "    具体IP地址的填写, 取决于接收该流量的服务正在监听的IP
     read -p "请输入: " flag_c
 }
 function read_d_port()
@@ -332,7 +332,7 @@ function show_all_conf()
     done
 }
 echo && echo -e "                      gost 一键安装配置脚本
-  ----------- 由STSDUST制作 ----------- 原脚本来自 fiisi.com -----------
+  ----------- 由STSDUST制作 ----------- 原脚本来自 ixmu.net -----------
   特性: (1)本脚本采用systemd及gost配置文件对gost进行管理
         (2)能够在不借助其他工具(如screen)的情况下实现多条转发规则同时生效
         (3)脚本面向仅图省事的使用者，因此仅提供少数转发功能
