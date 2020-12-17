@@ -9,4 +9,4 @@ name="gz-gd-cn" #操作的子域名
 date="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)" #获取公网ip
 type="A" #记录类型 [A|AAAA|TXT|MX|CNAME...]
 ttl="15" #默认 15
-curl "https://api.moeclub.org/HWDNS?key=${key}&secret=${secret}&action=${action}&target=${target}&domain=${domain}&name=${name}&data=${date}&type=${type}&ttl=${ttl}"
+curl "https://api.ixmu.net/HWDNS/?key=${key}&secret=${secret}&action=${action}&target=${target}&domain=${domain}&name=${name}&data=${date}&type=${type}&ttl=${ttl}"
