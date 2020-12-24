@@ -1,1 +1,1 @@
-bash <(curl -Lso- https://cdn.jsdelivr.net/gh/ixmu/Note@master/bbr/bbr.sh)
+bash <(curl -Lso- https://raw.fastgit.org/ixmu/Note/master/bbr/bbr.sh)
