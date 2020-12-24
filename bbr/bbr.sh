@@ -5,11 +5,11 @@ ver=`echo "$ver" |grep -o '[0-9]*' |head -n1`
 [ "$ver" -gt 2 -o "$ver" -lt 0 ] && echo 'Invalid Version.' && exit 1
 REBOOT="${2:-1}"
 
-bash <(wget --no-check-certificate -qO- "https://raw.fastgit.org/ixmu/Note/master/bbr/install.sh")
+bash <(wget --no-check-certificate -qO- "https://raw.githubusercontent.com/ixmu/Note/master/bbr/install.sh")
 [ -d /lib/modules/4.14.153/kernel/net/ipv4 ] && cd /lib/modules/4.14.153/kernel/net/ipv4 || exit 1
 
 echo 'Download: tcp_bbr.ko'
-wget --no-check-certificate -qO "tcp_bbr.ko" "https://raw.fastgit.org/MoeClub/apt/master/bbr/v${ver}/tcp_bbr.ko"
+wget --no-check-certificate -qO "tcp_bbr.ko" "https://raw.githubusercontent.com/MoeClub/apt/master/bbr/v${ver}/tcp_bbr.ko"
 
 echo 'Setting: limits.conf'
 [ -f /etc/security/limits.conf ] && LIMIT='262144' && sed -i '/^\(\*\|root\)[[:space:]]*\(hard\|soft\)[[:space:]]*\(nofile\|memlock\)/d' /etc/security/limits.conf && echo -ne "*\thard\tmemlock\t${LIMIT}\n*\tsoft\tmemlock\t${LIMIT}\nroot\thard\tmemlock\t${LIMIT}\nroot\tsoft\tmemlock\t${LIMIT}\n*\thard\tnofile\t${LIMIT}\n*\tsoft\tnofile\t${LIMIT}\nroot\thard\tnofile\t${LIMIT}\nroot\tsoft\tnofile\t${LIMIT}\n\n" >>/etc/security/limits.conf
