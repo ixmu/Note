@@ -4,9 +4,9 @@ cd /tmp
 #################
 #################
 
-ver_nettle=3.3
-ver_gnutls=3.5.8
-ver_libev=4.22
+ver_nettle=3.4
+ver_gnutls=3.5.19
+ver_libev=4.33
 ver_ocserv=0.12.3
 
 #################
