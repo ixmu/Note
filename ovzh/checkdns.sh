@@ -1,6 +1,9 @@
 #!/bin/bash
-#	Name：checkdns.sh
+#	名称：checkdns.sh
+#   描述：检测网络可用性并执行checkdns_run.sh
 #	INDEX:  https://www.ixmu.net
+
+
 netstatus=`curl -o /dev/null -s -w %{http_code} https://gitee.com`
 while(( $netstatus!=200 ))
 do
@@ -21,4 +24,6 @@ command -v curl >>/dev/null 2>&1
 yum install -y curl || apt-get install -y curl
 }
 
-bash <(wget --no-check-certificate -qO- 'https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh')
+bash <(wget --no-check-certificate -qO- 'https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh') || bash <(curl -s -k https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh)
+
+exit 0
