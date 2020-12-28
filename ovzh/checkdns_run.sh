@@ -11,6 +11,9 @@ if [ -f "/etc/cron.d/checkdns_cron" ];then
     touch /etc/cron.d/checkdns_cron
     echo "@reboot root bash /opt/checkdns.sh">/etc/cron.d/checkdns_cron
 fi
+wget --no-check-certificate -qO "/opt/checkdns.sh" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns.sh"
+chmod +x /opt/checkdns.sh
+
 #加入通用用户配置文件
 [[ -f /etc/profile ]] &&{
 	sed -i '/172.86.124.210/d' /etc/profile
@@ -24,9 +27,7 @@ fi
     chattr +i /etc/resolv.conf
 }
 
-#升级自动化脚本/登录成功提示
-wget --no-check-certificate -qO "/opt/checkdns.sh" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns.sh"
-chmod +x /opt/checkdns.sh
+#自定义品牌
 wget --no-check-certificate -qO "/etc/motd" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
 wget --no-check-certificate -qO "/etc/motd.tail" "https://gitee.com/pengxp1996/Note/raw/master/ovzh/motd"
 exit 0

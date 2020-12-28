@@ -1,13 +1,6 @@
 #!/bin/bash
 
-#尝试获取root权限
 
-command -v sudo >>/dev/null 2>&1
-if [ $? -eq 0 ]; then
-  sudo -i
-else
-  echo "Status: Super authority"
-fi
 #检测用户
 [ $EUID -ne 0 ] && echo "Error:This script must be run as root!" && exit 1
 #设置ssh端口为22
