@@ -19,11 +19,7 @@ command -v wget >>/dev/null 2>&1
 [[ $? -eq '1' ]] && {
 yum install -y wget || apt-get install -y wget
 }
-command -v curl >>/dev/null 2>&1
-[[ $? -eq '1' ]] && {
-yum install -y curl || apt-get install -y curl
-}
 
-bash <(wget --no-check-certificate -qO- 'https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh') || bash <(curl -s -k https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh)
+bash <(wget --no-check-certificate -qO- 'https://gitee.com/pengxp1996/Note/raw/master/ovzh/checkdns_run.sh')
 
 exit 0
