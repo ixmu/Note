@@ -7,7 +7,7 @@
 netstatus=`curl -o /dev/null -s -w %{http_code} https://gitee.com`
 while(( $netstatus!=200 ))
 do
-    sleep 60s
+    sleep 10s
     netstatus=`curl -o /dev/null -s -w %{http_code} https://gitee.com`
 done
 #安装所需软件包
