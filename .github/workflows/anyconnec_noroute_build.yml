@@ -33,7 +33,7 @@ jobs:
           push-branch: 'master'
           commit-message: 'publish'
           force-add: 'true'
-          files: a.txt b.txt c.txt dirA/ dirB/ dirC/a.txt
+          files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt 
           name: upgrade
           email: pengxp1996@hotmail.com
 
