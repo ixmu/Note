@@ -26,8 +26,8 @@ jobs:
              cd Anyconnect/build
              python NoRoute_build.py
              ls -al
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit & Push changes
+        uses: actions-js/push@master
+         with:
+            github_token: ${{ secrets.GITHUB_TOKEN }}
 
