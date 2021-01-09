@@ -19,7 +19,7 @@ jobs:
       - name: 'Build'
         run: |
              cd Anyconnect/build
-             if [ -f NoRote_requirements.txt ]; then pip install -r NoRote_requirements.txt; fi
+             pip install requests netaddr
              python NoRoute_build.py
         
 
