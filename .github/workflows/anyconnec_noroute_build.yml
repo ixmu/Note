@@ -26,8 +26,14 @@ jobs:
              cd Anyconnect/build
              python NoRoute_build.py
              ls -al
-      - name: Commit & Push changes
-        uses: actions-js/push@build
-         with：
-           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: push
+        uses: github-actions-x/commit@v2.7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          push-branch: 'master'
+          commit-message: 'publish'
+          force-add: 'true'
+          files: a.txt b.txt c.txt dirA/ dirB/ dirC/a.txt
+          name: upgrade
+          email: pengxp1996@hotmail.com
 
