@@ -25,6 +25,6 @@ jobs:
         run: |
              cd Anyconnect/build
              python NoRoute_build.py
-        
+             ls -al
 
 
