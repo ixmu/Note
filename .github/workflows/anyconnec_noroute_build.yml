@@ -27,7 +27,7 @@ jobs:
              python NoRoute_build.py
              ls -al
       - name: Commit & Push changes
-        uses: actions-js/push@master
-         with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions-js/push@build
+         with：
+           github_token: ${{ secrets.GITHUB_TOKEN }}
 
