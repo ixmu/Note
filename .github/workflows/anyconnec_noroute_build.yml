@@ -16,13 +16,11 @@ jobs:
         with:
           python-version: 2.7
           
-      - name: 'Install dependencies'
+      - name: 'Build'
         run: |
              cd Anyconnect/build
              if [ -f NoRote_requirements.txt ]; then pip install -r NoRote_requirements.txt; fi
-        
-      - name: Run Build
-        run:  |
-             pwd
              python NoRoute_build.py
+        
+
 
