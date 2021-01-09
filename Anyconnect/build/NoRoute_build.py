@@ -3,7 +3,7 @@
 import os,re,netaddr,requests
 from netaddr import *
 
-cnlines = [line.rstrip('\n') for line in open('cnroute.txt')]
+cnlines = [line.rstrip('\n') for line in open('chnroute.txt')]
 cnsummary = netaddr.cidr_merge(sorted(cnlines))
 cnroute_merged = open("cnroute_merged.txt", "w", encoding='utf-8')
 cnroute_merged.write('\n'.join([ unicode(x) for x in cnsummary ]))
