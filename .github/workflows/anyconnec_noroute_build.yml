@@ -22,5 +22,7 @@ jobs:
              if [ -f NoRote_requirements.txt ]; then pip install -r NoRote_requirements.txt; fi
         
       - name: Run Build
-        run:  python NoRoute_build.py
+        run:  |
+             pwd
+             python NoRoute_build.py
 
