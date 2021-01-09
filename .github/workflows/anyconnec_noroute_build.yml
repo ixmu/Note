@@ -17,11 +17,8 @@ jobs:
           python-version: 2.7
           
       - name: 'Install pip'
-        run: |
-             cd Anyconnect/build
-             pip install requests netaddr
-             python NoRoute_build.py
-             - name: 'Install pip'
+        run: pip install requests netaddr
+       
       - name：'Build'
         run: |
              cd Anyconnect/build
