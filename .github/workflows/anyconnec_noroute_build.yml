@@ -21,9 +21,10 @@ jobs:
              pip install requests 
              pip install netaddr
        
-      - name：'Build'
+      - name: 'Build NoRoute'
         run: |
              cd Anyconnect/build
+             python NoRoute_build.py
         
 
 
