@@ -47,7 +47,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv.tar 'https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_v0.12.3.tar'
+wget --no-check-certificate -4 -qO /tmp/ocserv.tar 'https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/build/ocserv_v0.12.6.tar'
 tar --overwrite -xvf /tmp/ocserv.tar -C /
 
 # server cert key file: /etc/ocserv/server.key.pem
