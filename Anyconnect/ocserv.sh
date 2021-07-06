@@ -97,6 +97,8 @@ fi
 cp -f /usr/share/zoneinfo/PRC /etc/localtime
 echo "Asia/Shanghai" >/etc/timezone
 
+#预设用户
+echo '1810813019:Default:$5$L3.8Vurqwh/jL1ae$LbV6zGRBEgvvu0ofKulh5Xb4PisM/aITzilQPCHg177' > /etc/ocserv/ocpasswd
 read -n 1 -p "Press <ENTER> to reboot..."
 ## Rebot Now
 reboot
