@@ -26,6 +26,7 @@ NDM的设置选项也只有三个简单的分栏，通用（General）、代{过
 一般设置以下两项即可：
 
 > 1、最大连接数（Max connections per Download）：为了保证兼容性和稳定性，推荐16线程；
+> 
 > 2、下载目录（Download Directory）：根据自己的存储磁盘为止设置即可。
 
 ![alt 004](https://cdn.staticaly.com/gh/ixmu/Note/master/weixin/ndm/004.png)
