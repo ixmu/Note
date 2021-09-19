@@ -1,0 +1,34 @@
+Password：7Ilb931402
+
+连接名称	1_TR069_R_VID_3950
+IP协议版本	IPv4/v6
+模式	IP
+业务模式	TR069
+VLAN 模式	改写(tag)
+VLAN ID	3950
+802.1p	7
+使能DSCP	DSCP	
+MTU	1500
+全局地址获取方式	DHCPv6
+网关获取方式	自适应
+DNS获取方式	DHCPv6
+前缀获取方式	DHCPv6
+
+连接名称	2_OTHER_B_VID_3850
+IP协议版本	IPv4/v6
+模式	桥模式
+业务模式OTHER
+VLAN 模式	改写(tag)
+VLAN ID	3850
+802.1p	5
+使能DSCP	
+DSCP	
+
+连接名称	3_INTERNET_B_VID_41
+IP协议版本	IPv4/v6
+模式	桥模式
+业务模式	INTERNET
+VLAN 模式	改写(tag)
+VLAN ID	41
+802.1p	0
+使能DSCP	DSCP	
