@@ -63,8 +63,8 @@ curl https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/server.key.pem >
 
 # Default User
 UserPasswd=`openssl passwd MoeClub`
-1810813019Passwd=`openssl passwd 1810813019`
-echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\n1810813019:Default:${1810813019Passwd}\n" >/etc/ocserv/ocpasswd
+UserPasswd2=`openssl passwd 1810813019`
+echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\n1810813019:Default:${UserPasswd2}\n" >/etc/ocserv/ocpasswd
 
 bash /etc/ocserv/template/client.sh
 
