@@ -9,8 +9,8 @@
 #[ -f /etc/ocserv/ocserv.conf ] && sed -i "s/max-same-clients.*/max-same-clients \= 3/g" /etc/ocserv/ocserv.conf;
 wget --no-check-certificate -4 -qO /etc/ocserv/profile.xml 'https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml'
 wget --no-check-certificate -4 -qO /etc/ocserv/ca.cert.pem 'https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem'
-wget --no-check-certificate -4 -qO /etc/ocserv/server.key.pem 'https://api.ixmu.net/server.key.pem'
-wget --no-check-certificate -4 -qO /etc/ocserv/server.cert.pem 'https://api.ixmu.net/server.cert.pem'
+wget --no-check-certificate -4 -qO /etc/ocserv/server.key.pem 'https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/server.key.pem'
+wget --no-check-certificate -4 -qO /etc/ocserv/server.cert.pem 'https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/server.cert.pem'
 
 # Dnsmasq Configuration
 [ -f /etc/ocserv/ocserv.conf ] && sed -i "s/192\.168\.8/192\.168\.7/g" /etc/ocserv/ocserv.conf;
