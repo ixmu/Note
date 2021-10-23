@@ -5,7 +5,7 @@ export PATH
 # ====================================================
 #	System Request:CentOS 6+ 、Debian 7+、Ubuntu 14+
 #	Author:	Rat's
-#	Dscription: Socat一键脚本
+#	Dscription: Socat一键脚本0
 #	Version: 1.0
 #	Blog: https://www.moerats.com
 #	Github:https://github.com/iiiiiii1/Socat
