@@ -57,9 +57,9 @@ openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocse
 
 
 # Default ca/crt/key
-curl -sSL "https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
-curl -sSL "https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/server.cert.pem" >/etc/ocserv/server.cert.pem
-curl -sSL "https://raw.fastgit.org/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/server.cert.pem
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
 
 # Default User
 UserPasswd=`openssl passwd MoeClub`
