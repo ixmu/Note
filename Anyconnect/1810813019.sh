@@ -56,7 +56,7 @@ openssl genrsa -out /etc/ocserv/server.key.pem 2048
 openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
 
 # Default User
-UserPasswd=`openssl passwd MoeClub`
+UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}\Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 
 bash /etc/ocserv/template/client.sh
