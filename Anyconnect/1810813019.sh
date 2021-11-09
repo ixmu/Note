@@ -55,16 +55,9 @@ openssl genrsa -out /etc/ocserv/server.key.pem 2048
 # server cert file: /etc/ocserv/server.cert.pem
 openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
 
-
-# Default ca/crt/key
-curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
-curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/server.cert.pem
-curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
-
 # Default User
 UserPasswd=`openssl passwd MoeClub`
-UserPasswd2=`openssl passwd 1810813019`
-echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\n1810813019:Default:${UserPasswd2}\n" >/etc/ocserv/ocpasswd
+echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 
 bash /etc/ocserv/template/client.sh
 
@@ -103,6 +96,10 @@ fi
 # Timezone
 cp -f /usr/share/zoneinfo/PRC /etc/localtime
 echo "Asia/Shanghai" >/etc/timezone
+
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/server.cert.pem
+curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
 
 ## Not Reboot
 [ "$1" == "NotReboot" ] && exit 0
