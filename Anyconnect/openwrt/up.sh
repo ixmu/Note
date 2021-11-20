@@ -11,6 +11,13 @@ iptables -I FORWARD -o $1 -j ACCEPT
 #允许转发到虚拟接口
 iptables -t nat -I POSTROUTING -o $1 -j MASQUERADE
 #允许转发nat
-
-
-
+ipset add gfwlist 91.108.56.0/22
+ipset add gfwlist 91.108.4.0/22
+ipset add gfwlist 91.108.8.0/22
+ipset add gfwlist 91.108.16.0/22
+ipset add gfwlist 91.108.12.0/22
+ipset add gfwlist 149.154.160.0/20
+ipset add gfwlist 91.105.192.0/23
+ipset add gfwlist 91.108.20.0/22
+ipset add gfwlist 185.76.151.0/24
+#添加telegram ip段
