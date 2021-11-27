@@ -1,6 +1,9 @@
 #!/bin/sh
 ip route add 8.8.8.8 dev $1
-#首先将 8.8.8.8 DNS 解析服务器设置为从 OpenVPN 走防止域名污染；
+ip route add 9.9.9.9 dev $1
+ip route add 208.67.222.222 dev $1
+ip route add 1.1.1.1 dev $1
+#首先将 office组的 DNS 解析服务器设置为从 OpenVPN 走防止域名污染；
 iptables -t mangle -A fwmark -m set --match-set gfwlist dst -j MARK --set-mark 0xffff
 #使用 iptables mangle 表中的 fwmark 链为所有目标为 gfwlist ipset 中 IP 地址的数据包打标记，这里标记号用的是 0xffff；
 ip rule add fwmark 0xffff table gfwtable
