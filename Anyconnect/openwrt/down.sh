@@ -7,3 +7,8 @@ iptables -D FORWARD -o $1 -j ACCEPT
 #删除允许转发到虚拟设备
 iptables -t nat -D POSTROUTING -o $1 -j MASQUERADE
 #删除nat转发
+ip route add 8.8.8.8
+ip route add 9.9.9.9
+ip route add 208.67.222.222
+ip route add 1.1.1.1
+#删除office组dns路由
