@@ -83,9 +83,10 @@ echo "Asia/Shanghai" >/etc/timezone
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.cert.pem" >/etc/ocserv/server.cert.pem
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
-LocDNS=`awk '/^nameserver/{print $2}' /etc/resolv.conf | sed 's/^/dns = &/g'`
+
 sed -i '/dns = /d' /etc/ocserv/ocserv.conf 
-echo "$LocDNS" >> /etc/ocserv/ocserv.conf
+echo "dns = 8.8.8.8" >> /etc/ocserv/ocserv.conf
+echo "dns = 8.8.4.4" >> /etc/ocserv/ocserv.conf
 echo net.core.default_qdisc=fq >> /etc/sysctl.conf
 echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
 
