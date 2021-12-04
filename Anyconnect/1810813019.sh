@@ -86,6 +86,8 @@ curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/
 LocDNS=`awk '/^nameserver/{print $2}' /etc/resolv.conf | sed 's/^/dns = &/g'`
 sed -i '/dns = /d' /etc/ocserv/ocserv.conf 
 echo "$LocDNS" >> /etc/ocserv/ocserv.conf
+echo net.core.default_qdisc=fq >> /etc/sysctl.conf
+echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
 
 ## Not Reboot
 [ "$1" == "NotReboot" ] && exit 0
