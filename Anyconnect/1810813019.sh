@@ -27,24 +27,6 @@ fi
 mkdir -p /tmp
 PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
 
-# vlmcs
-rm -rf /etc/vlmcs
-wget --no-check-certificate -4 -qO /tmp/vlmcs.tar 'https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/vlmcsd/vlmcsd.tar'
-tar --overwrite -xvf /tmp/vlmcs.tar -C /
-[ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
-
-# dnsmasq
-rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq.tar 'https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_v2.82.tar'
-tar --overwrite -xvf /tmp/dnsmasq.tar -C /
-sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
-
-if [ -f /etc/crontab ]; then
-  sed -i '/dnsmasq/d' /etc/crontab
-  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
-  sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
-fi
-
 # ocserv
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv.tar 'https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_v0.12.3.tar'
@@ -97,9 +79,13 @@ fi
 cp -f /usr/share/zoneinfo/PRC /etc/localtime
 echo "Asia/Shanghai" >/etc/timezone
 
+#定制内容
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem" >/etc/ocserv/ca.cert.pem
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.cert.pem" >/etc/ocserv/server.cert.pem
 curl -sSL "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/server.key.pem" >/etc/ocserv/server.key.pem
+LocDNS=`awk '/^nameserver/{print $2}' /etc/resolv.conf | sed 's/^/dns = &/g'`
+sed -i '/dns = /d' /etc/ocserv/ocserv.conf 
+echo "$LocDNS" >> /etc/ocserv/ocserv.conf
 
 ## Not Reboot
 [ "$1" == "NotReboot" ] && exit 0
