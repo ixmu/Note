@@ -32,6 +32,7 @@ jobs:
           push-branch: 'master'
           commit-message: 'publish'
           force-add: 'true'
+          rebase: 'true'
           files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt 
           name: upgrade
           email: pengxp1996@hotmail.com
