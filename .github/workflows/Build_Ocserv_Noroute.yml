@@ -25,14 +25,14 @@ jobs:
         run: |
              cd Anyconnect/build
              python NoRoute_build.py
+
       - name: push
-        uses: github-actions-x/commit@v2.7
-        with:
-          github-token: ${{ secrets.REPO_TOKEN }}
-          push-branch: 'master'
-          commit-message: 'publish'
-          force-add: 'true'
-          rebase: 'true'
-          files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt 
-          name: upgrade
-          email: pengxp1996@hotmail.com
+      - uses: github-actions-x/commit@v2.8
+       with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        push-branch: 'master'
+        commit-message: 'publish'
+        force-add: 'true'
+        files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt 
+        name: commiter name
+        email: pengxp1996@hotmail.com 
