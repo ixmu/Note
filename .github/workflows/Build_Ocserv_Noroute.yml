@@ -33,6 +33,6 @@ jobs:
         push-branch: 'master'
         commit-message: 'publish'
         force-add: 'true'
-        files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt 
-        name: commiter name
+        files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt
+        name: ixmu
         email: pengxp1996@hotmail.com 
