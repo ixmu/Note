@@ -29,10 +29,10 @@ jobs:
       - name: push
         uses: github-actions-x/commit@v2.8
         with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        push-branch: 'master'
-        commit-message: 'publish'
-        force-add: 'true'
-        files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt
-        name: ixmu
-        email: pengxp1996@hotmail.com 
+         github-token: ${{ secrets.GITHUB_TOKEN }}
+         push-branch: 'master'
+         commit-message: 'publish'
+         force-add: 'true'
+         files: Anyconnect/build/cn-no-route1.txt Anyconnect/build/cn-no-route2.txt
+         name: ixmu
+         email: pengxp1996@hotmail.com 
