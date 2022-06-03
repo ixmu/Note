@@ -1,0 +1,166 @@
+log:
+  level: info
+  file: /etc/mosdns/mosdns.txt
+
+plugin:
+  - tag: main_server
+    type: server
+    args:
+      entry:
+        - _no_ecs
+        - lazy_cache
+        - _prefer_ipv4
+        - _single_flight
+        - main_sequence
+      server:
+        - protocol: udp
+          addr: 127.0.0.1:5335
+        - protocol: tcp
+          addr: 127.0.0.1:5335
+        - protocol: udp
+          addr: '[::1]:5335'
+        - protocol: tcp
+          addr: '[::1]:5335'
+
+  - tag: main_sequence
+    type: sequence
+    args:
+      exec:
+        - query_is_hosts_domain
+        - query_is_redirect_domain
+        - if:
+            - query_is_whitelist_domain
+          exec:
+            - forward_local
+            - _return
+        - if:
+            - query_is_blocklist_domain
+            - query_is_ad_domain
+            - qtype65
+          exec:
+            - _block_with_nxdomain
+            - _return
+        - if:
+            - query_is_local_domain
+            - "!_query_is_common"
+          exec:
+            - forward_local
+            - _return
+
+        - if:
+            - query_is_gfwlist_domain
+          exec:
+            - forward_remote
+            - ipset_to_gfwlist
+            - _return
+
+        - if:
+            - query_is_non_local_domain
+          exec:
+            - forward_remote
+            - _return
+        - primary:
+            - forward_local
+            - if:
+                - "!response_has_local_ip"
+              exec:
+                - _drop_response
+          secondary:
+            - forward_remote
+          fast_fallback: 150
+          always_standby: true
+
+  - tag: forward_local
+    type: fast_forward
+    args:
+      upstream:
+        - addr: '211.139.5.29'
+        - addr: '211.139.5.30'
+        - addr: '223.5.5.5'
+        - addr: '223.6.6.6'
+        - addr: 'https://27392.alidns.com/dns-query'
+
+  - tag: query_is_whitelist_domain
+    type: query_matcher
+    args:
+      domain:
+        - "ext:./whitelist.txt"
+
+  - tag: query_is_blocklist_domain
+    type: query_matcher
+    args:
+      domain:
+        - "ext:/etc/mosdns/rule/blocklist.txt"
+
+  - tag: query_is_hosts_domain
+    type: hosts
+    args:
+      hosts:
+        - "ext:/etc/mosdns/rule/hosts.txt"
+
+  - tag: query_is_redirect_domain
+    type: redirect
+    args:
+      rule:
+        - "ext:/etc/mosdns/rule/redirect.txt"
+
+  - tag: forward_remote
+    type: fast_forward
+    args:
+      upstream:
+        - addr: 'https://cloudflare-dns.com/dns-query'
+          dial_addr: '1.1.1.1:443'
+        - addr: 'https://doh.opendns.com/dns-query'
+          dial_addr: '146.112.41.2:443'
+        - addr: 'https://dns.quad9.net/dns-query'
+          dial_addr: '9.9.9.9:443'
+        - addr: 'https://dns.google/dns-query'
+          dial_addr: '8.8.8.8:443'
+
+  - tag: lazy_cache
+    type: cache
+    args:
+      size: 512000
+      lazy_cache_ttl: 259200
+
+  - tag: query_is_local_domain
+    type: query_matcher
+    args:
+      domain:
+        - "ext:/etc/mosdns/geosite.dat:cn"
+
+  - tag: 'ipset_to_gfwlist'
+    type: 'ipset'
+    args:
+     set_name4: 'gfwlist'
+     mask4: 24
+
+  - tag: query_is_gfwlist_domain
+    type: query_matcher
+    args:
+      domain:
+        - 'ext:./geosite.dat:gfw'
+        - 'ext:./cm_list.txt'
+
+  - tag: query_is_non_local_domain
+    type: query_matcher
+    args:
+      domain:
+        - "ext:/etc/mosdns/geosite.dat:geolocation-!cn"
+
+  - tag: response_has_local_ip
+    type: response_matcher
+    args:
+      ip:
+        - "ext:/etc/mosdns/geoip.dat:cn"
+
+  - tag: query_is_ad_domain
+    type: query_matcher
+    args:
+      domain:
+        - "ext:./serverlist.txt"
+
+  - tag: qtype65
+    type: query_matcher
+    args:
+      qtype: [65]
