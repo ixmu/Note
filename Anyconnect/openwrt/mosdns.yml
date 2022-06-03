@@ -1,6 +1,6 @@
 log:
   level: info
-  file: /etc/mosdns/mosdns.txt
+  file: /etc/mosdns/mosdns.log
 
 plugin:
   - tag: main_server
@@ -57,7 +57,7 @@ plugin:
         - if:
             - query_is_non_local_domain
           exec:
-            - forward_remote
+            - forward_safety
             - _return
         - primary:
             - forward_local
@@ -78,6 +78,16 @@ plugin:
         - addr: '211.139.5.30'
         - addr: '223.5.5.5'
         - addr: '223.6.6.6'
+        - addr: 'https://27392.alidns.com/dns-query'
+
+  - tag: forward_safety
+    type: fast_forward
+    args:
+      upstream:
+        - addr: 'https://1.12.12.12/dns-query'
+        - addr: 'https://120.53.53.53/dns-query'
+        - addr: 'https://doh.360.cn'
+        - addr: 'https://dns.alidns.com/dns-query'
         - addr: 'https://27392.alidns.com/dns-query'
 
   - tag: query_is_whitelist_domain
@@ -139,8 +149,8 @@ plugin:
     type: query_matcher
     args:
       domain:
-        - 'ext:./geosite.dat:gfw'
-        - 'ext:./cm_list.txt'
+        - 'ext:/etc/mosdns/geosite.dat:gfw'
+        - 'ext:/etc/mosdns/cm_list.txt'
 
   - tag: query_is_non_local_domain
     type: query_matcher
@@ -158,7 +168,7 @@ plugin:
     type: query_matcher
     args:
       domain:
-        - "ext:./serverlist.txt"
+        - "ext:/etc/mosdns/serverlist.txt"
 
   - tag: qtype65
     type: query_matcher
