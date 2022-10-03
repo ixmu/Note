@@ -7,28 +7,28 @@ servers:
       - protocol:          tcp
         addr:              :5335
 
+#调试api
+api:
+  http: "172.16.0.3:8080"
+
 # 日志设置
 log:
-  level: info
+  level: warn
   file: "/tmp/mosdns.txt"
 
 # 数据源设置
 data_providers:
-
-  - tag:                   gfwlist
-    file:                  "./rule/gfw.txt"
-    auto_reload:           true
 
   - tag:                   cmlist
     file:                  "./rule/cm_list.txt"
     auto_reload:           true
 
   - tag:                   geosite
-    file:                  "/usr/share/v2ray/geosite.dat"
+    file:                  "./rule/geosite.dat"
     auto_reload:           true
 
   - tag:                   geoip
-    file:                  "/usr/share/v2ray/geoip.dat"
+    file:                  "./rule/geoip.dat"
     auto_reload:           true
 
   - tag:                   adlist
@@ -69,12 +69,6 @@ plugins:
       domain:
             - "provider:cmlist"
 
-  - tag:                   "query_is_gfw_domain"
-    type:                  query_matcher
-    args:
-      domain:
-            - "provider:gfwlist"
-
 
   - tag:                   "query_is_whitelist_domain"
     type:                  query_matcher
@@ -87,6 +81,12 @@ plugins:
     args:
       domain:
             - "provider:blocklist"
+
+  - tag:                   "query_is_gfw_domain"
+    type:                  query_matcher
+    args:
+      domain:
+        - "provider:geosite:gfw"
 
   - tag:                   "query_is_local_domain"
     type:                  query_matcher
@@ -139,17 +139,19 @@ plugins:
   - tag:                   "lazy_cache"
     type:                  cache
     args:
-      size:                512000
-      lazy_cache_ttl:      259200
+      size:                51200
+      lazy_cache_ttl:      360000
+      redis: "redis://172.16.0.2:6379/0"
+      redis_timeout: 100
+      cache_everything: true
+
 
   - tag:                   "forward_local"
     type:                  fast_forward
     args:
       upstream:
-        - addr:            211.139.5.29
+        - addr:            211.139.5.29         
         - addr:            211.139.5.30
-        - addr:            223.5.5.5
-        - addr:            119.29.29.29
 
   - tag:                   "forward_remote"
     type:                  fast_forward
@@ -157,15 +159,20 @@ plugins:
       upstream:
         - addr:            8.8.8.8
         - addr:            1.1.1.1
-        - addr:            https://149.112.112.112/dns-query
-        - addr:            https://208.67.220.220/dns-query
+
+  - tag:                   "forward_global"
+    type:                  fast_forward
+    args:
+      upstream:
+        - addr:            223.5.5.5
+        - addr:            119.29.29.29
 
   - tag:                   main_sequence
     type:                  sequence
     args:
       exec:
-        - _misc_optm
         - lazy_cache
+        - _misc_optm
         - query_is_hosts_domain
         - query_is_redirect_domain
         - _no_ecs
@@ -177,9 +184,18 @@ plugins:
           exec:
             - _new_nxdomain_response
             - _return
+
+        - if:              "query_is_gfw_domain"
+          exec:
+            - _prefer_ipv4
+            - forward_remote
+            - gfw_to_ipset
+            - _return
+
         - if:              "query_is_local_domain"
           exec:
             - forward_local
+            - lazy_cache
             - _return
         - if:              "query_is_cmlist_domain"
           exec:
@@ -187,16 +203,11 @@ plugins:
             - forward_remote
             - gfw_to_ipset
             - _return
-        - if:              "query_is_gfw_domain"
-          exec:
-            - _prefer_ipv4
-            - forward_remote
-            - gfw_to_ipset
-            - _return
+
         - if:              "query_is_non_local_domain"
           exec:
             - _prefer_ipv4
-            - forward_remote
+            - forward_global
             - _return
         - primary:
             - forward_local
@@ -206,5 +217,5 @@ plugins:
           secondary:
             - _prefer_ipv4
             - forward_remote
-          fast_fallback:   150
+          fast_fallback:   200
           always_standby:  true
