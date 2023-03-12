@@ -49,9 +49,9 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.6.tar"
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.6.tar"
 tar --overwrite -xvf /tmp/ocserv_bin.tar -C /
-wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_config.tar"
+wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
 
 # server cert key file: /etc/ocserv/server.key.pem
@@ -60,8 +60,8 @@ openssl genrsa -out /etc/ocserv/server.key.pem 2048
 openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
 
 # Default User
-UserPasswd=`openssl passwd MoeClub`
-echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n" >/etc/ocserv/ocpasswd
+UserPasswd=`openssl passwd 1810813019`
+echo -e "1810813019:Default:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
 bash /etc/ocserv/template/client.sh
