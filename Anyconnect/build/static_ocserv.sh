@@ -159,6 +159,7 @@ wget --no-check-certificate -4 -O ocserv.tar.xz ftp://ftp.infradead.org/pub/ocse
 mkdir -p ocserv; tar -xJ -f ocserv.tar.xz -C ocserv --strip-components=1;
 cd ocserv
 #autoreconf -fvi
+sed -i 's/<config-auth client=\\"vpn\\"/<config-auth client=\\"Cisco Security Gateway\\"/' src/worker-auth.c
 sed -i 's/#define DEFAULT_CONFIG_ENTRIES 96/#define DEFAULT_CONFIG_ENTRIES 200/' src/vpn.h
 sed -i 's/login_end = OC_LOGIN_END;/&\n\t\tif (ws->req.user_agent_type == AGENT_UNKNOWN) {\n\t\t\tcstp_cork(ws);\n\t\t\tret = (cstp_printf(ws, "HTTP\/1.%u 200 OK\\r\\nContent-Type: text\/plain\\r\\nContent-Length: 0\\r\\n\\r\\n", http_ver) < 0 || cstp_uncork(ws) < 0);\n\t\t\tstr_clear(\&str);\n\t\t\treturn -1;\n\t\t}/' src/worker-auth.c
 #sed -i 's/case AC_PKT_DPD_OUT:/&\n\t\tws->last_nc_msg = now;/' src/worker-vpn.c
