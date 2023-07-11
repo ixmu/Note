@@ -6,4 +6,5 @@ UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}" >>/etc/ocserv/ocpasswd
 sed -i 's/max-clients = 0/max-clients = 64/g' /etc/ocserv/ocserv.conf
 sed -i 's/max-same-clients = 0/max-same-clients = 64/g' /etc/ocserv/ocserv.conf
+curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ca.cert.pem > /etc/ocserv/ca.cert.pem
 reboot 
