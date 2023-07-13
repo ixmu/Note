@@ -7,5 +7,5 @@ while true; do
         echo "网络连接失败，执行重启操作..."
         reboot
     fi
-    sleep 5
+    sleep 60
 done
