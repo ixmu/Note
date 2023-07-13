@@ -13,10 +13,10 @@
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/g" /etc/ssh/sshd_config;
 #设置公钥位置
 [ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?AuthorizedKeysFile.*/AuthorizedKeysFile \.ssh\/authorized_keys \.ssh\/authorized_keys2/g" /etc/ssh/sshd_config;
-#远程下载公钥
-[ -d /root/.ssh/ ] && curl -Lso- https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
 #目录不存在则创建
-[ ! -d /root/.ssh/ ] && mkdir /root/.ssh/ && curl -Lso- https://cdn.jsdelivr.net/gh/ixmu/Note/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
+[ ! -d /root/.ssh/ ] && mkdir /root/.ssh/ 
+#远程下载公钥
+[ -d /root/.ssh/ ] && curl -Lso- https://raw.githubusercontent.com/ixmu/Note/master/ssh/PubkeyAuthentication > /root/.ssh/authorized_keys
 #重启ssh服务
 systemctl restart sshd
 
