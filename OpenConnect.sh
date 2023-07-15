@@ -7,7 +7,7 @@ password="your_password"
 
 # NAT规则相关信息
 nat_subnet="10.0.0.0/24"
-nat_interface="eth0"
+nat_interface="tun0"
 
 # 连接检测间隔（以秒为单位）
 check_interval=60
