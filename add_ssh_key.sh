@@ -10,10 +10,10 @@ mkdir -p ~/.ssh && echo "${ssh_public_key}" >> ~/.ssh/authorized_keys
 chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
 
 # 修改 SSHD 配置文件
-sudo sed -i 's/#PubkeyAuthentication/PubkeyAuthentication/' /etc/ssh/sshd_config
-#sudo sed -i 's/#PasswordAuthentication/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/#PubkeyAuthentication/PubkeyAuthentication/' /etc/ssh/sshd_config
+#sed -i 's/#PasswordAuthentication/PasswordAuthentication no/' /etc/ssh/sshd_config
 
 # 重启 SSH 服务
-sudo systemctl restart sshd
+systemctl restart sshd
 
 echo "SSH 公钥已成功添加到授权密钥文件，并修改了 SSHD 配置。"
