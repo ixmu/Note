@@ -11,7 +11,7 @@ chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
 
 # 修改 SSHD 配置文件
 sudo sed -i 's/#PubkeyAuthentication/PubkeyAuthentication/' /etc/ssh/sshd_config
-sudo sed -i 's/#PasswordAuthentication/PasswordAuthentication no/' /etc/ssh/sshd_config
+#sudo sed -i 's/#PasswordAuthentication/PasswordAuthentication no/' /etc/ssh/sshd_config
 
 # 重启 SSH 服务
 sudo systemctl restart sshd
