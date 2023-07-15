@@ -26,3 +26,4 @@ case `uname -m` in aarch64|arm64) arch="arm64";; x86_64|amd64) arch="amd64";; *)
 cd $HOME/dnsmasq-build
 tar -cvf "../dnsmasq_${arch}_v${ver_dnsmasq}.tar" ./
 # tar --overwrite -xvf "dnsmasq_${arch}_v${ver_dnsmasq}.tar" -C /
+
