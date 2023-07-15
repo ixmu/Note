@@ -8,8 +8,3 @@ bash <(curl -Lso- https://raw.githubusercontent.com/ixmu/Note/master/add_ssh_key
 ```shell
 bash <(curl -Lso- https://raw.githubusercontent.com/ixmu/Note/master/network_monitor.sh)
 ```
-
-Anyconnect服务端安装脚本
-```shell
-bash <(curl -Lso- https://raw.githubusercontent.com/ixmu/Note/master/network_monitor.sh)
-```
