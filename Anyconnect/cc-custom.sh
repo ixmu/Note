@@ -11,9 +11,7 @@ UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}" >>/etc/ocserv/ocpasswd
 
 #修改配置文件
-sed -i 's/max-clients = 0/max-clients = 64/g' /etc/ocserv/ocserv.conf
-sed -i 's/max-same-clients = 0/max-same-clients = 64/g' /etc/ocserv/ocserv.conf
-sed -i 's/#user-profile.*/user-profile = \/etc\/ocserv\/profile.xml/g' /etc/ocserv/ocserv.conf
+curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.conf > /etc/ocserv/ocserv.conf
 curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml > /etc/ocserv/profile.xml
 
 #重启系统
