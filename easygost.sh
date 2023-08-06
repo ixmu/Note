@@ -106,7 +106,7 @@ function Install_ct() {
     mkdir /etc/gost && wget --no-check-certificate https://gotunnel.oss-cn-shenzhen.aliyuncs.com/config.json && mv config.json /etc/gost && chmod -R 777 /etc/gost
   else
     rm -rf gost-linux-"$bit"-"$ct_new_ver".gz
-    wget --no-check-certificate https://github.com/ginuerzh/gost/releases/download/v"$ct_new_ver"/gost-linux-"$bit"-"$ct_new_ver".gz
+    wget --no-check-certificate https://fastdownload.ixnic.net/ginuerzh/gost/releases/download/v"$ct_new_ver"/gost-linux-"$bit"-"$ct_new_ver".gz
     gunzip gost-linux-"$bit"-"$ct_new_ver".gz
     mv gost-linux-"$bit"-"$ct_new_ver" gost
     mv gost /usr/bin/gost
@@ -872,7 +872,7 @@ cron_restart() {
 }
 
 update_sh() {
-  ol_version=$(curl -L -s --connect-timeout 5 https://fastraw.ixnic.net/KANIKIG/Multi-EasyGost/master/gost.sh | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
+  ol_version=$(curl -L -s --connect-timeout 5 https://fastraw.ixnic.net/ixmu/Note/master/easygost.sh | grep "shell_version=" | head -1 | awk -F '=|"' '{print $3}')
   if [ -n "$ol_version" ]; then
     if [[ "$shell_version" != "$ol_version" ]]; then
       echo -e "存在新版本，是否更新 [Y/N]?"
