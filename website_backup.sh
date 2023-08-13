@@ -27,8 +27,11 @@ FTP_Dir="backup"
 
 ######~Enable ossutil Backup~######
 Ossutil_Bin='/usr/sbin/ossutil'
-Ossutil_config='/home/wwwroot/api.ixmu.net/ossutil/ossutil.config'
-Ossutil_name='natural64'
+Ossutil_config_dir='/path_to/'
+Ossutil_name='oss_name'
+oss_endpoint='oss_endpoint'
+oss_accessKeyID='accessKeyID'
+oss_accessKeySecret='accessKeySecret'
 Enable_ossutil=1
 # 0: enable; 1: disable
 
@@ -92,8 +95,12 @@ echo "complete."
 fi
 
 if [ ${Enable_ossutil} = 0 ]; then
+    if [ ! -f "${Ossutil_config_dir=}/ossutil.config" ];then
+      echo "初始化配置"
+      echo -e "[Credentials]\nlanguage=CH\nendpoint=${oss_endpoint}\naccessKeyID=${oss_accessKeyID}\naccessKeySecret=${oss_accessKeySecret}"> ${Ossutil_config}/ossutil.config
+    fi
     echo "Uploading backup files to AliyunOSS..."
-    ${Ossutil_Bin} --config-file ${Ossutil_config} cp -r ${Backup_Home}/ oss://${Ossutil_name}/$(date +"%Y-%m-%d")/
-    ${Ossutil_Bin} --config-file ${Ossutil_config} rm -rf oss://${Ossutil_name}/$(date -d -15day +"%Y-%m-%d")
+    ${Ossutil_Bin} --config-file ${Ossutil_config_dir=}/ossutil.config cp -r ${Backup_Home}/ oss://${Ossutil_name}/$(date +"%Y-%m-%d")/
+    ${Ossutil_Bin} --config-file ${Ossutil_config_dir=}/ossutil.config rm -rf oss://${Ossutil_name}/$(date -d -15day +"%Y-%m-%d")
     echo "complete."
 fi
