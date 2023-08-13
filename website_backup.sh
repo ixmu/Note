@@ -6,15 +6,15 @@ Old_Backup_Home="/home/backup/$(date -d -15day +"%Y-%m-%d")"
 MySQL_Dump="/usr/bin/mysqldump"
 ######~Set Directory you want to backup~######
 Backup_Dir="/home/wwwroot"
-Backup_domain=("www.ixmu.net" "api.ixmu.net")
+Backup_domain=("domain1 "domain2")
 
 ######~Set MySQL Database you want to backup~######
-Backup_Database=("whmcs" "wordpress")
+Backup_Database=("database1" "database2")
 
 ######~Set MySQL UserName and password~######
-MYSQL_Host='rm-wz9o5jhqi58o3ve78.mysql.rds.aliyuncs.com'
-MYSQL_UserName='rootpeng'
-MYSQL_PassWord='ZpjvKA7qJij2EQh'
+MYSQL_Host='Mysql server address'
+MYSQL_UserName='mysql username'
+MYSQL_PassWord='mysql password'
 
 ######~Enable Ftp Backup~######
 Enable_FTP=1
@@ -29,7 +29,7 @@ FTP_Dir="backup"
 Ossutil_Bin='/usr/sbin/ossutil'
 Ossutil_config='/home/wwwroot/api.ixmu.net/ossutil/ossutil.config'
 Ossutil_name='natural64'
-Enable_ossutil=0
+Enable_ossutil=1
 # 0: enable; 1: disable
 
 #Values Setting END!
