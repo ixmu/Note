@@ -28,14 +28,14 @@ bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/Mo
 # vlmcs
 if [ "$VER" == "amd64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/vlmcsd/vlmcsd_${VER}.tar"
+  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
   tar --overwrite -xvf /tmp/vlmcs.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.86.tar"
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_${VER}.tar"
 tar --overwrite -xvf /tmp/dnsmasq_bin.tar -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
@@ -49,7 +49,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.6.tar"
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_${VER}_v1.2.1.tar"
 tar --overwrite -xvf /tmp/ocserv_bin.tar -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
