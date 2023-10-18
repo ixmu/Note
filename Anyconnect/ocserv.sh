@@ -7,9 +7,9 @@ EthName=`cat /proc/net/dev |grep ':' |cut -d':' -f1 |sed 's/\s//g' |grep -iv '^l
 
 command -v yum >>/dev/null 2>&1
 if [ $? -eq 0 ]; then
-  yum install -y curl wget nc xz openssl gnutls-utils
+  yum install -y curl wget nc xz openssl gnutls-utils iptables
 else
-  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils
+  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils iptables
 fi
 
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
