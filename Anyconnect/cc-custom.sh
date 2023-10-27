@@ -14,5 +14,8 @@ echo -e "1810813019:Default:${UserPasswd}" >>/etc/ocserv/ocpasswd
 curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.conf > /etc/ocserv/ocserv.conf
 curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml > /etc/ocserv/profile.xml
 
+#修改配置参数
+sed -i 's/dns = 192\.168\.8\.1/dns = 8.8.8.8/g' /etc/ocserv/ocserv.conf
+echo 'dns = 1.1.1.1' >> /etc/ocserv/ocserv.conf
 #重启系统
 reboot 
