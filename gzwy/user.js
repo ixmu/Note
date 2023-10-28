@@ -9,11 +9,11 @@
 // @grant        none
 // @license MIT
 // ==/UserScript==
-
+ 
 (function () {
   //'use strict';
-
-
+ 
+ 
   window.onload = function () {
     var stop = false;
     var $div = $(`
@@ -29,7 +29,7 @@
         <span>有问题请反馈</span>
       </div>
     `);
-
+ 
     var $style = `
       <style type="text/css">
       .jsdiv:{
@@ -49,10 +49,10 @@
       $("div[data-title='点击静音']")[0].click();
       $("div[data-title=点击播放]")[0].click();
       window.onblur = function () {
-
+ 
       }
       stop = false;
-      setInterval(subJd, 10000);
+      subJd();
     })
     jsdiv2.addEventListener("click", function () {
       stop = true;
@@ -111,21 +111,20 @@
               });
               dsf.layer.message("提交成功，进度" + p + "%!");
               if (p < 100) {
-                setInterval(subJd, 10000);
+                setTimeout(function() { subJd(); }, 30000);
+       //         subJd();
               } else {
                 if (window.ctime) {
                   if ((new Date().getTime() - window.ctime.getTime()) < 5000) {
-
+ 
                     console.log("时间未到");
-                    setInterval(subJd, 10000);
-
+                    subJd();
                   } else {
                     window.ctime = new Date();
                     if ($(".com-canvas[data-percent!='100']").length) {
-
+ 
                       $(".com-canvas[data-percent!='100']")[0].click();
-                      setInterval(subJd, 10000);
-
+                      subJd();
                     } else {
                       dsf.layer.alert("脚本提交全部课程！", function () {
                         var index = layer.alert();
@@ -136,16 +135,16 @@
                 } else {
                   window.ctime = new Date();
                   if ($(".com-canvas[data-percent!='100']").length) {
-
+ 
                     $(".com-canvas[data-percent!='100']")[0].click();
-                    setInterval(subJd, 10000);
+                    subJd();
                   } else {
                     dsf.layer.alert("脚本提交全部课程！", function () {
                       var index = layer.alert();
                       layer.close(index);
                     });
                   }
-
+ 
                 }
               }
             }
@@ -163,7 +162,6 @@
         })
         .always(function () { })
         .exec();
-    }
-
+    } 
   }
 })();
