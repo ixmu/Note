@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         (新)贵州省党员干部网络学院秒看视频、自动提交等。
 // @namespace    zzy
-// @version      1.6
+// @version      1.7
 // @description  贵州省党员干部网络学院秒看视频
 // @author       zzy
 // @match        *https://gzwy.gov.cn/dsfa/nc/pc/course/views/course*
@@ -111,11 +111,11 @@
               });
               dsf.layer.message("提交成功，进度" + p + "%!");
               if (p < 100) {
-                setTimeout(function() { subJd(); }, 30000);
-       //         subJd();
+                subJd();
               } else {
                 if (window.ctime) {
-                  if ((new Date().getTime() - window.ctime.getTime()) < 5000) {
+                  // 提交频率
+                  if ((new Date().getTime() - window.ctime.getTime()) < 30000) {
  
                     console.log("时间未到");
                     subJd();
@@ -162,6 +162,7 @@
         })
         .always(function () { })
         .exec();
-    } 
+    }
+ 
   }
 })();
