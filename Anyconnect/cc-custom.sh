@@ -17,5 +17,14 @@ curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/p
 #修改配置参数
 sed -i 's/dns = 192\.168\.8\.1/dns = 8.8.8.8/g' /etc/ocserv/ocserv.conf
 echo 'dns = 1.1.1.1' >> /etc/ocserv/ocserv.conf
+
+#配置GOST代理
+cd /tmp
+wget https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+gzip -d -c gost-linux-amd64-2.11.5.gz > gost
+mv gost /usr/bin/gost
+chmod -R 777 /usr/bin/gost
+echo "nohup gost -L caocao:123456@:10034 http://:10034 > /dev/null 2>&1 &" >>/etc/crontab
+
 #重启系统
 reboot 
