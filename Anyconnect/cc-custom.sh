@@ -24,7 +24,7 @@ wget https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64
 gzip -d -c gost-linux-amd64-2.11.5.gz > gost
 mv gost /usr/bin/gost
 chmod -R 777 /usr/bin/gost
-echo "nohup gost -L caocao:123456@:10034 http://:10034 > /dev/null 2>&1 &" >>/etc/crontab
+echo "@reboot root gost -L caocao:123456@:10034 http://:10034 > /dev/null 2>&1 &" >>/etc/crontab
 
 #重启系统
 reboot 
