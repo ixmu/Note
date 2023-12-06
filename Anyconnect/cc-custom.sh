@@ -1,4 +1,6 @@
-apt update && apt upgrade -y && apt install -y iptables
+apt update
+apt upgrade -y
+apt install iptables -y
 
 #初始化安装脚本
 wget --no-check-certificate --no-cache -4 -O /tmp/ocserv.sh "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv.sh"
