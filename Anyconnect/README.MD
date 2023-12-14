@@ -78,7 +78,7 @@ bash /etc/ocserv/template/client.sh -o <OrgName> -g <GroupName> -p <PASSWORD>
 
 # ocserv.sh Debian x64 8+ / CentOS 6+ / Ubuntu 14+)
 ```
-bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv.sh")
+bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv.sh")
 ```
 ## 安装后需要的一些工作([域名证书可点此查看申请步骤](https://github.com/MoeClub/AlphaSSL))
 - 将域名证书上传至 `/etc/ocserv/server.cert.pem`
