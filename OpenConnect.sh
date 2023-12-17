@@ -1,5 +1,5 @@
-#!/bin/bash
-
+#!/bin/sh
+# echo "@reboot root /root/OpenConnect.sh >>/dev/null 2>&1 &" >/etc/crontab
 # OpenConnect服务器地址和认证信息
 server="your_server_address"
 username="your_username"
