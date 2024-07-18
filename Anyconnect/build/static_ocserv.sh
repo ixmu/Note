@@ -8,11 +8,11 @@
 #################
 #################
 
-ver_glibc=2.31
+ver_glibc=2.33
 ver_libev=4.33
-ver_nettle=3.7.3
-ver_gnutls=3.6.16
-ver_ocserv=1.1.7
+ver_nettle=3.9.1
+ver_gnutls=3.7.11
+ver_ocserv=1.2.1
 
 #################
 #################
@@ -35,6 +35,7 @@ ln -s . $installPrefix/local
 
 #################
 #################
+
 
 # glibc
 cd /tmp
@@ -149,7 +150,6 @@ EOF
 ar rcs $installPrefix/lib/libreadline.a readline.o
 rm -rf readline.o
 
-
 # OpenConnect Server
 cd /tmp
 rm -rf $HOME/ocserv-build
@@ -161,6 +161,7 @@ cd ocserv
 #autoreconf -fvi
 sed -i 's/#define DEFAULT_CONFIG_ENTRIES 96/#define DEFAULT_CONFIG_ENTRIES 200/' src/vpn.h
 sed -i 's/login_end = OC_LOGIN_END;/&\n\t\tif (ws->req.user_agent_type == AGENT_UNKNOWN) {\n\t\t\tcstp_cork(ws);\n\t\t\tret = (cstp_printf(ws, "HTTP\/1.%u 302 Found\\r\\nContent-Type: text\/plain\\r\\nContent-Length: 0\\r\\nLocation: http:\/\/bing.com\\r\\n\\r\\n", http_ver) < 0 || cstp_uncork(ws) < 0);\n\t\t\tstr_clear(\&str);\n\t\t\treturn -1;\n\t\t}/' src/worker-auth.c
+sed -i 's/c_isspace/isspace/' src/occtl/occtl.c
 #sed -i 's/case AC_PKT_DPD_OUT:/&\n\t\tws->last_nc_msg = now;/' src/worker-auth.c
 #sed -i 's/\$LIBS \$LIBEV/\$LIBEV \$LIBS/g' configure
 CFLAGS="-I$installPrefix/include -ffloat-store -O0 --static" \
@@ -169,7 +170,7 @@ LIBS="-lev -lm -lnettle -lhogweed -lreadline" \
 ./configure --prefix=/usr \
 	--disable-rpath \
 	--with-local-talloc \
-	--without-{root-tests,docker-tests,nuttcp-tests} \
+	--without-{root-tests,docker-tests,nuttcp-tests,tun-tests} \
 	--without-{protobuf,maxmind,geoip,liboath,pam,radius,utmp,lz4,http-parser,gssapi,pcl-lib}
 [ $? -eq 0 ] || exit 1 
 make -j$cores
@@ -182,4 +183,3 @@ for item in `find . -type f`; do strip -s "$item" 2>/dev/null; done
 case `uname -m` in aarch64|arm64) arch="arm64";; x86_64|amd64) arch="amd64";; *) arch="unknown";; esac
 tar -cvf "../ocserv_${arch}_v${ver_ocserv}.tar" ./
 # tar --overwrite -xvf "ocserv_${arch}_v${ver_ocserv}.tar" -C /
-
