@@ -3,7 +3,7 @@
 # Build static ocserv 
 #                   by MoeClub
 
-# apt install -y gcc bison gawk make autoconf pkg-config xz-utils
+# apt install -y gcc bison gawk make autoconf pkg-config xz-utils ipcalc
 
 #################
 #################
