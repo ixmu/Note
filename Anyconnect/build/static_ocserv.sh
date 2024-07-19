@@ -8,11 +8,11 @@
 #################
 #################
 
-ver_glibc=2.33
+ver_glibc=2.36
 ver_libev=4.33
-ver_nettle=3.9.1
-ver_gnutls=3.7.11
-ver_ocserv=1.2.1
+ver_nettle=3.8.1
+ver_gnutls=3.7.9
+ver_ocserv=1.3.0
 
 #################
 #################
