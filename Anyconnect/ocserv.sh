@@ -38,7 +38,7 @@ fi
 rm -rf /etc/dnsmasq.d
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/build/dnsmasq_${VER}_v2.89.tar"
 tar --overwrite -xvf /tmp/dnsmasq_bin.tar -C /
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
