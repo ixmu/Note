@@ -49,11 +49,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-<<<<<<< HEAD
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_$VER_v1.3.0.tar"
-=======
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/build/ocserv_${VER}_v1.3.0.tar"
->>>>>>> 2c995526bb51cb2f17ee9cd65cf0dbc6e79a9d36
 tar --overwrite -xvf /tmp/ocserv_bin.tar -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
