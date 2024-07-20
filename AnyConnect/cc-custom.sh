@@ -13,8 +13,8 @@ UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}" >>/etc/ocserv/ocpasswd
 
 #修改配置文件
-curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/ocserv.conf > /etc/ocserv/ocserv.conf
-curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/Anyconnect/ocserv/profile.xml > /etc/ocserv/profile.xml
+curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv/ocserv.conf > /etc/ocserv/ocserv.conf
+curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv/profile.xml > /etc/ocserv/profile.xml
 
 #修改配置参数
 sed -i 's/dns = 192\.168\.8\.1/dns = 8.8.8.8/g' /etc/ocserv/ocserv.conf
