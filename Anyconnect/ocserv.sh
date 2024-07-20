@@ -19,6 +19,7 @@ case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) V
 [ ! -n "$VER" ] && echo "Not Support! " && exit 1
 
 
+echo ${VER}
 mkdir -p /tmp
 PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
 
