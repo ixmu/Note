@@ -63,11 +63,17 @@ install_gost() {
         exit 1
         ;;
     esac
+
+    mkdir -p /tmp/gost && cd /tmp/gost/
     download_url="${download_base_url}/go-gost/gost/releases/download/v${version}/gost_${version}_${os}_${cpu_arch}.tar.gz"
 
     # Download the binary
     echo "Downloading gost version $version..."
     curl -fsSL -o gost.tar.gz $download_url
+
+    curl -fsSL -o /etc/systemd/system/gost.servic "${raw_base_url}/ixmu/Note/master/gost/gost.service"
+    mkdir -p /etc/gost/
+    touch /etc/gost/config.yaml
 
     # Extract and install the binary
     echo "Installing gost..."
@@ -76,6 +82,9 @@ install_gost() {
     mv gost /usr/local/bin/gost
 
     echo "gost installation completed!"
+    
+    echo "wss入口点简单配置生成 gost -L tcp://:中转机入站端口 -F relay+wss://中转机IP:中转机出站端口 -O yaml"
+    echo "wss出口点简单配置生成 gost -L relay+wss://:中转机出站端口/落地机IP:落地机端口 -O yaml"
 }
 
 install_gost ${version}
