@@ -71,7 +71,7 @@ install_gost() {
     echo "Downloading gost version $version..."
     curl -fsSL -o gost.tar.gz $download_url
 
-    curl -fsSL -o /etc/systemd/system/gost.servic "${raw_base_url}/ixmu/Note/master/gost/gost.service"
+    curl -fsSL -o /etc/systemd/system/gost.service "${raw_base_url}/ixmu/Note/master/gost/gost.service"
     mkdir -p /etc/gost/
     touch /etc/gost/config.yaml
 
