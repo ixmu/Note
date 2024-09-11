@@ -1,32 +1,113 @@
-apt update
-apt upgrade -y
-apt install iptables -y
+#!/bin/bash
+# Script by MoeClub.org
 
-#初始化安装脚本
-wget --no-check-certificate --no-cache -4 -O /tmp/ocserv.sh "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv.sh"
-sed -i -e :a -e '$d;N;2,3ba' -e 'P;D' /tmp/ocserv.sh
-sed -i 's/v1.1.6/v1.1.7/' /tmp/ocserv.sh
-bash /tmp/ocserv.sh 
+[ $EUID -ne 0 ] && echo "Error:This script must be run as root!" && exit 1
+EthName=`cat /proc/net/dev |grep ':' |cut -d':' -f1 |sed 's/\s//g' |grep -iv '^lo\|^sit\|^stf\|^gif\|^dummy\|^vmnet\|^vir\|^gre\|^ipip\|^ppp\|^bond\|^tun\|^tap\|^ip6gre\|^ip6tnl\|^teql\|^ocserv\|^vpn' |sed -n '1p'`
+[ -n "$EthName" ] || exit 1
 
-#注入用户名密码信息
+command -v yum >>/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  yum install -y curl wget nc xz openssl gnutls-utils
+else
+  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils
+fi
+
+XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
+for XCMD in "${XCMDS[@]}"; do command -v "$XCMD" >>/dev/null 2>&1; [ $? -ne 0 ] && echo "Not Found $XCMD."; done
+
+case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) VER="";; esac
+[ ! -n "$VER" ] && echo "Not Support! " && exit 1
+
+
+mkdir -p /tmp
+PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
+
+# BBR
+bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/MoeClub/apt/master/bbr/bbr.sh') 0 0
+
+# vlmcs
+if [ "$VER" == "amd64" ]; then
+  rm -rf /etc/vlmcs
+  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/vlmcsd/vlmcsd_${VER}.tar"
+  tar --overwrite -xvf /tmp/vlmcs.tar -C /
+  [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
+fi
+
+# dnsmasq
+rm -rf /etc/dnsmasq.d
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.86.tar"
+tar --overwrite -xvf /tmp/dnsmasq_bin.tar -C /
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_config.tar"
+tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
+sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
+
+if [ -f /etc/crontab ]; then
+  sed -i '/dnsmasq/d' /etc/crontab
+  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
+  sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
+fi
+
+# ocserv
+rm -rf /etc/ocserv
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.6.tar"
+tar --overwrite -xvf /tmp/ocserv_bin.tar -C /
+wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_config.tar"
+tar --overwrite -xvf /tmp/ocserv_config.tar -C /
+
+# server cert key file: /etc/ocserv/server.key.pem
+openssl genrsa -out /etc/ocserv/server.key.pem 2048
+# server cert file: /etc/ocserv/server.cert.pem
+openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
+
+# Default User
 UserPasswd=`openssl passwd 1810813019`
-echo -e "1810813019:Default:${UserPasswd}" >>/etc/ocserv/ocpasswd
+echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n1810813019:Default:${UserPasswd}" >/etc/ocserv/ocpasswd
+[ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
-#修改配置文件
-curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv/ocserv.conf > /etc/ocserv/ocserv.conf
-curl -sSL https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv/profile.xml > /etc/ocserv/profile.xml
+bash /etc/ocserv/template/client.sh
+
+chown -R root:root /etc/ocserv
+chmod -R 755 /etc/ocserv
+
+[ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
+
+if [ -f /etc/crontab ]; then
+  sed -i '/\/etc\/ocserv/d' /etc/crontab
+  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
+  sed -i "\$a\@reboot root bash /etc/ocserv/ocserv.d >>/dev/null 2>&1 &\n\n\n" /etc/crontab
+fi
+
+# Sysctl
+if [ -f /etc/sysctl.conf ]; then
+  sed -i '/^net\.ipv4\.ip_forward/d' /etc/sysctl.conf
+  while [ -z "$(sed -n '$p' /etc/sysctl.conf)" ]; do sed -i '$d' /etc/sysctl.conf; done
+  sed -i '$a\net.ipv4.ip_forward = 1\n\n' /etc/sysctl.conf
+fi
+
+# Limit
+if [[ -f /etc/security/limits.conf ]]; then
+  LIMIT='262144'
+  sed -i '/^\(\*\|root\).*\(hard\|soft\).*\(memlock\|nofile\)/d' /etc/security/limits.conf
+  while [ -z "$(sed -n '$p' /etc/security/limits.conf)" ]; do sed -i '$d' /etc/security/limits.conf; done
+  echo -ne "*\thard\tnofile\t${LIMIT}\n*\tsoft\tnofile\t${LIMIT}\nroot\thard\tnofile\t${LIMIT}\nroot\tsoft\tnofile\t${LIMIT}\n" >>/etc/security/limits.conf
+  echo -ne "*\thard\tmemlock\t${LIMIT}\n*\tsoft\tmemlock\t${LIMIT}\nroot\thard\tmemlock\t${LIMIT}\nroot\tsoft\tmemlock\t${LIMIT}\n\n\n" >>/etc/security/limits.conf
+fi
+
+# SSH
+#[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?Port .*/Port 9527/g" /etc/ssh/sshd_config;
+[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config;
+[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config;
+
+# Timezone
+cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
+echo "Asia/Shanghai" >/etc/timezone
 
 #修改配置参数
 sed -i 's/dns = 192\.168\.8\.1/dns = 8.8.8.8/g' /etc/ocserv/ocserv.conf
 echo 'dns = 1.1.1.1' >> /etc/ocserv/ocserv.conf
 
-#配置GOST代理
-cd /tmp
-wget https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
-gzip -d -c gost-linux-amd64-2.11.5.gz > gost
-mv gost /usr/bin/gost
-chmod -R 777 /usr/bin/gost
-echo "@reboot root gost -L caocao:123456@:10034 http://:10034 > /dev/null 2>&1 &" >>/etc/crontab
-
-#重启系统
-reboot 
+## Not Reboot
+[ "$1" == "NotReboot" ] && exit 0
+## Rebot Now
+read -n 1 -p "Press <ENTER> to reboot..."
+reboot
