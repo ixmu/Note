@@ -49,7 +49,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.xz "wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://github.com/robvanoostenrijk/openconnect-server-static/releases/download/v1.1.6/openconnect-server-linux-${VER}.tar.xz"
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://github.com/robvanoostenrijk/openconnect-server-static/releases/download/v1.1.6/openconnect-server-linux-${VER}.tar.xz"
 tar --overwrite -xvJf /tmp/ocserv_bin.tar.xz -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
