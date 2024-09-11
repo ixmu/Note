@@ -103,6 +103,8 @@ cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
 echo "Asia/Shanghai" >/etc/timezone
 
 #修改配置参数
+sed -i 's/max-clients = 0/max-clients = 128/g' /etc/ocserv/ocserv.conf
+sed -i 's/max-same-clients = 0/max-same-clients = 128/g' /etc/ocserv/ocserv.conf
 sed -i 's/dns = 192\.168\.8\.1/dns = 8.8.8.8/g' /etc/ocserv/ocserv.conf
 echo 'dns = 1.1.1.1' >> /etc/ocserv/ocserv.conf
 
