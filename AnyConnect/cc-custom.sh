@@ -61,7 +61,7 @@ openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocse
 
 # Default User
 UserPasswd=`openssl passwd 1810813019`
-echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n1810813019:Default:${UserPasswd}" >/etc/ocserv/ocpasswd
+echo -e "1810813019:Default:${UserPasswd}" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
 bash /etc/ocserv/template/client.sh
