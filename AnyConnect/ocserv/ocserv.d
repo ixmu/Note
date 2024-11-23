@@ -58,10 +58,22 @@ PORT(){
   [ "$?" == "0" ] && echo "0" || echo "1";
 }
 
+SSL_CHECK(){
+  response=$(curl -v --insecure https://127.0.0.1:"${MyPort}" 2>&1)
+  if echo "$response" | grep -q "SSL certificate problem"; then
+    echo "SSL 证书已过期，正在获取新的证书..."
+    curl -o /etc/ocserv/server.key.pem https://pki.ixmu.net/ssl/ixnic.net_ecc/ixnic.net.key
+    curl -o /etc/ocserv/server.cert.pem https://pki.ixmu.net/ssl/ixnic.net_ecc/fullchain.cer
+  else
+      echo "SSL 证书有效。"
+  fi
+}
+
 SCAN(){
   if [[ "$(PORT)" == "0" ]]; then
     sleep 300;
   else
+    SSL_CHECK;
     START;
     sleep 10;
   fi
