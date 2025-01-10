@@ -35,7 +35,7 @@ fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
 tar --overwrite -zxvf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
@@ -49,7 +49,7 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.7.tar.gz"
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.7.tar.gz"
 tar --overwrite -zxvf /tmp/ocserv_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
