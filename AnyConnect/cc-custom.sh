@@ -28,8 +28,8 @@ bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/Mo
 # vlmcs
 if [ "$VER" == "amd64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar.xz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
-  tar --overwrite -xvf /tmp/vlmcs.tar -C /
+  wget --no-check-certificate -4 -qO /tmp/vlmcsd.tar.xz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
+  tar --overwrite -xvf /tmp/vlmcsd.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
 
