@@ -15,7 +15,7 @@ fi
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
 for XCMD in "${XCMDS[@]}"; do command -v "$XCMD" >>/dev/null 2>&1; [ $? -ne 0 ] && echo "Not Found $XCMD."; done
 
-case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) VER="";; esac
+case `uname -m` in aarch64|arm64) VER="aarch64";; x86_64|amd64) VER="x86_64";; *) VER="";; esac
 [ ! -n "$VER" ] && echo "Not Support! " && exit 1
 
 
