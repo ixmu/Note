@@ -28,7 +28,7 @@ bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/Mo
 # vlmcs
 if [ "$VER" == "amd64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcsd.tar.xz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
+  wget --no-check-certificate -4 -qO /tmp/vlmcsd.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
   tar --overwrite -xvf /tmp/vlmcsd.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
@@ -36,7 +36,7 @@ fi
 # dnsmasq
 rm -rf /etc/dnsmasq.d
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
-tar --overwrite -xvf /tmp/dnsmasq_bin.tar.gz -C /
+tar --overwrite -zxvf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
@@ -50,7 +50,7 @@ fi
 # ocserv
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.7.tar.gz"
-tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /
+tar --overwrite -zxvf /tmp/ocserv_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
 
