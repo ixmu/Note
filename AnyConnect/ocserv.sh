@@ -15,7 +15,7 @@ fi
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
 for XCMD in "${XCMDS[@]}"; do command -v "$XCMD" >>/dev/null 2>&1; [ $? -ne 0 ] && echo "Not Found $XCMD."; done
 
-case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) VER="";; esac
+case `uname -m` in aarch64|aaarch64) VER="arm64";; x86_64|amd64) VER="x86_64";; *) VER="";; esac
 [ ! -n "$VER" ] && echo "Not Support! " && exit 1
 
 
@@ -36,8 +36,8 @@ fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.89.tar"
-tar --overwrite -xvf /tmp/dnsmasq_bin.tar -C /
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
+tar --overwrite -zxvf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
@@ -50,8 +50,8 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.xz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.2.4.tar.xz"
-tar --overwrite -xvf /tmp/ocserv_bin.tar.xz -C /
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.3.0.tar.gz"
+tar --overwrite -zxvf /tmp/ocserv_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
 
