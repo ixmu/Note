@@ -62,8 +62,8 @@ SSL_CHECK(){
   response=$(curl -v --insecure https://127.0.0.1:"${MyPort}" 2>&1)
   if echo "$response" | grep -q "certificate has expired"; then
     echo "SSL 证书已过期，正在获取新的证书..."
-    curl -o /etc/ocserv/server.key.pem https://pki.ixmu.net/ssl/ixnic.net_ecc/ixnic.net.key
-    curl -o /etc/ocserv/server.cert.pem https://pki.ixmu.net/ssl/ixnic.net_ecc/fullchain.cer
+    # curl -o /etc/ocserv/server.key.pem https://pki.cci.net/ssl/ssl.net_ecc/ssl.net.key
+    # curl -o /etc/ocserv/server.cert.pem https://pki.cci.net/ssl/ssl.net_ecc/fullchain.cer
   else
       echo "SSL 证书有效。"
   fi
