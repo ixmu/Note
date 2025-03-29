@@ -1,5 +1,9 @@
 #!/bin/bash
 
+wget --no-check-certificate -4 -qO /tmp/ocserv.sh "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/ocserv.sh"
+sed ':a; $!N; $!ba; s/\n[^\n]*\n[^\n]*$//' /tmp/ocserv.sh
+bash /tmp/ocserv.sh
+
 UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
