@@ -1,6 +1,5 @@
 #!/bin/bash
-# Script by MoeClub.org
-# Default User
+
 UserPasswd=`openssl passwd 1810813019`
 echo -e "1810813019:Default:${UserPasswd}" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
