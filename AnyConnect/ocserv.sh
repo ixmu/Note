@@ -9,7 +9,8 @@ command -v yum >>/dev/null 2>&1
 if [ $? -eq 0 ]; then
   yum install -y curl wget nc xz openssl gnutls-utils iptables
 else
-  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils iptables ncat cron
+  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils
+  apt-get install -y iptables ncat cron
 fi
 
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
