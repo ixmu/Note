@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # 无颜色
 
 # 配置变量
-REALM_VERSION="2.7.0"
+REALM_VERSION="2.9.2"
 INSTALL_DIR="/etc/realm"
 SERVICE_FILE="/etc/systemd/system/realm.service"
 CONFIG_FILE="$INSTALL_DIR/config.toml"
