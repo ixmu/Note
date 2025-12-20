@@ -29,14 +29,14 @@ bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/Mo
 if [ "$VER" == "amd64" ]; then
   rm -rf /etc/vlmcs
   wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/vlmcsd/vlmcsd.tar"
-  tar --overwrite -xvf /tmp/vlmcs.tar -C /
+  tar --overwrite -xzf /tmp/vlmcs.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
-tar --overwrite -xzvf /tmp/dnsmasq_bin.tar.gz -C /
+tar --overwrite --xzf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
