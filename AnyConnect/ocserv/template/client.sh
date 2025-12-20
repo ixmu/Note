@@ -67,9 +67,7 @@ echo -e "cn = \"${OrgName}.${GroupName}\"\nunit = \"${GroupName}\"\nexpiration_d
 openssl genrsa -out ./user.key.pem 2048
 certtool --generate-certificate --load-privkey ./user.key.pem --load-ca-certificate ./ca.cert.pem --load-ca-privkey ./ca.key.pem --template ./user.cfg --outfile ./user.cert.pem
 cat ./ca.cert.pem >>./user.cert.pem
-
-openssl pkcs12 --help 2>&1 |grep -q 'legacy' && legacy="-legacy" || legacy=""
-openssl pkcs12 $legacy -export -inkey ./user.key.pem -in ./user.cert.pem -name "${OrgName}.${GroupName}" -certfile ./ca.cert.pem -caname "${OrgName} CA" -out "./${GroupName}_${OrgName}_$PASSWORD.p12" -passout pass:$PASSWORD
+openssl pkcs12 -export -inkey ./user.key.pem -in ./user.cert.pem -name "${OrgName}.${GroupName}" -certfile ./ca.cert.pem -caname "${OrgName} CA" -out "./${GroupName}.p12" -passout pass:$PASSWORD
 
 [ $? -eq '0' ] && echo -e "\nSuccess! \nGROUP\t\tPASSWORD\n${GroupName}\t\t$PASSWORD\n" || echo -e "\nFail! \n";
 rm -rf ./user.cert.pem ./user.key.pem ./user.cfg
