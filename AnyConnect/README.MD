@@ -1,19 +1,3 @@
-# MacOS
-```
-curl -sSL "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/mac.sh" |bash -s <CERT_URL> <CERT_PWD>
-
-```
-
-# iOS
-```
-anyconnect://create?usecert=true&certcommonname=<CERT_NAME>&name=<NAME>&host=<SERVER>
-anyconnect://import?type=profile&uri=<PROFILE_URL>
-anyconnect://import?type=pkcs12&uri=<CERT_URL>
-
-anyconnect://connect/?name=<NAME>&onsuccess=anyconnect%3A%2F%2Fclose&onerror=anyconnect%3A%2F%2Fclose
-anyconnect://disconnect/?onsuccess=anyconnect%3A%2F%2Fclose&onerror=anyconnect%3A%2F%2Fclose
-```
-
 # Preferences
 ```
 # profile.xml
@@ -36,28 +20,6 @@ iptables -t nat -A PREROUTING -d <本机地址> -p tcp --dport <本机端口> -j
 iptables -t nat -I POSTROUTING -d <远程地址> -p tcp --dport <远程端口> -j MASQUERADE
 ```
 
-# ocserv.deb [ Debian 10+ / Ubuntu 18+ ] (AMD64/ARM64)
-```
-wget --no-check-certificate --no-cache -4 -qO /tmp/ocserv.deb "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv.deb" && dpkg -i /tmp/ocserv.deb
-
-```
-
-# docker
-```
-docker build -t ocserv:latest ./DockerFile; 
-
-docker run --name ocserv --env PASSWD=-Test:TestPwd:NoRoute --env CERT=<CERT_URL> --env KEY=<KEY_URL> --env CA=<CA_URL> --privileged -p 443:443 -d <ImageID> 
-
-docker rm -f ocserv
-
-
---env CA=<URL>         # 用于证书登陆
---env PASSWD=<STRING>  # 用于用户名密码登陆
---env DNS=<URL>        # 用于dnsmasq域名解析优化
---env CERT=<URL>       # 用于域名证书
---env KEY=<URL> 
-
-```
 
 # 证书认证
 ```
