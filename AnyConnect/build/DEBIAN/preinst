@@ -1,7 +1,0 @@
-#!/bin/bash
-
-rm -rf /usr/sbin/ocserv*
-rm -rf /tmp/ocserv_*.tar
-
-rm -rf /usr/sbin/dnsmasq*
-rm -rf /tmp/dnsmasq_*.tar
