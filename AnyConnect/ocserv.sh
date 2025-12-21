@@ -26,16 +26,16 @@ PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
 # vlmcs
 if [ "$VER" == "x86_64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://github.com/ixmu/Note/raw/refs/heads/master/AnyConnect/build/vlmcsd.tar"
+  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/ixmu/Note/master/master/AnyConnect/build/vlmcsd.tar"
   tar --overwrite -xvf /tmp/vlmcs.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://github.com/ixmu/Note/raw/refs/heads/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
 tar -xzf /tmp/dnsmasq_bin.tar.gz -C /
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_config.tar"
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
@@ -47,9 +47,9 @@ fi
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_${VER}_v1.1.6.tar"
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.3.0.tar"
 tar --overwrite -xvf /tmp/ocserv_bin.tar -C /
-wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/ocserv_config.tar"
+wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
 tar --overwrite -xvf /tmp/ocserv_config.tar -C /
 
 # server cert key file: /etc/ocserv/server.key.pem
@@ -58,7 +58,7 @@ openssl genrsa -out /etc/ocserv/server.key.pem 2048
 openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
 
 # Default User
-UserPasswd=`openssl passwd MoeClub`
+UserPasswd=`openssl passwd ixmu_net`
 echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
