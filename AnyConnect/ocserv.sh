@@ -9,34 +9,32 @@ command -v yum >>/dev/null 2>&1
 if [ $? -eq 0 ]; then
   yum install -y curl wget nc xz openssl gnutls-utils
 else
-  apt-get install -y curl wget netcat openssl gnutls-bin xz-utils
+  apt-get install -y curl wget openssl gnutls-bin xz-utils ncat iptables cron
 fi
 
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
 for XCMD in "${XCMDS[@]}"; do command -v "$XCMD" >>/dev/null 2>&1; [ $? -ne 0 ] && echo "Not Found $XCMD."; done
 
-case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) VER="";; esac
+case `uname -m` in aarch64|arm64) VER="aarch64";; x86_64|amd64) VER="x86_64";; *) VER="";; esac
 [ ! -n "$VER" ] && echo "Not Support! " && exit 1
 
 
 mkdir -p /tmp
 PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
 
-# BBR
-bash <(wget --no-check-certificate -4 -qO- 'https://raw.githubusercontent.com/MoeClub/apt/master/bbr/bbr.sh') 0 0
 
 # vlmcs
-if [ "$VER" == "amd64" ]; then
+if [ "$VER" == "x86_64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/vlmcsd/vlmcsd_${VER}.tar"
+  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://github.com/ixmu/Note/raw/refs/heads/master/AnyConnect/build/vlmcsd.tar"
   tar --overwrite -xvf /tmp/vlmcs.tar -C /
   [ -f /etc/vlmcs/vlmcs.d ] && bash /etc/vlmcs/vlmcs.d init
 fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.86.tar"
-tar --overwrite -xvf /tmp/dnsmasq_bin.tar -C /
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://github.com/ixmu/Note/raw/refs/heads/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
+tar -xzf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/build/dnsmasq_config.tar"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
