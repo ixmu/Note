@@ -50,7 +50,7 @@ START(){
   [ -n "$MyPort" ] && IPTABLES "iptables -I INPUT -p tcp --dport ${MyPort} -j ACCEPT"
   [ -n "$MyUDP" ] && IPTABLES "iptables -I INPUT -p udp --dport ${MyUDP} -j ACCEPT"
   [ -n "$MyPublicIP" ] && [ -f "${MyPath}/group/NoRoute" ] && sed -i "s/^no-route\s*=\s*.*\/255.255.255.255/no-route = ${MyPublicIP}\/255.255.255.255/" /etc/ocserv/group/NoRoute
-  ocserv --config "${MyConfig}" >>/dev/null 2>&1;
+  /usr/sbin/ocserv --config "${MyConfig}" >>/dev/null 2>&1;
 }
 
 PORT(){
