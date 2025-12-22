@@ -101,8 +101,10 @@ cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
 echo "Asia/Shanghai" >/etc/timezone
 
 #优化Musl兼容配置
-curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/ocserv/ocserv.conf >/etc/ocserv/ocserv.conf
-curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/ocserv/ocserv.d /etc/ocserv/ocserv.d
+sed -i '/^run-as-user = nobody/ s/^/# /' /etc/ocserv/ocserv.conf
+sed -i '/^run-as-group = daemon/ s/^/# /' /etc/ocserv/ocserv.conf
+sed -i 's/ocserv --config/\/usr\/sbin\/ocserv --config/g' /etc/ocserv/ocserv.d
+
 ## Not Reboot
 [ "$1" == "NotReboot" ] && exit 0
 ## Rebot Now
