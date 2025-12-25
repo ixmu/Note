@@ -39,8 +39,6 @@ wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githu
 tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
-cp -rf "/etc/dnsmasq.d/dnsmasq.service" "/etc/systemd/system/dnsmasq.service"
-chmod 755 "/etc/systemd/system/dnsmasq.service"
 systemctl daemon-reload
 systemctl enable dnsmasq.service --now
 
