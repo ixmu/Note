@@ -39,13 +39,11 @@ wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githu
 tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
-# if [ -f /etc/crontab ]; then
-# sed -i '/dnsmasq/d' /etc/crontab
-# while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
-# sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
-# fi
-mv /etc/dnsmasq.d/dnsmasq.service /etc/systemd/
-systemctl enable dnsmasq.service
+cp -rf "/etc/dnsmasq.d/dnsmasq.service" "/etc/systemd/system/dnsmasq.service"
+chmod 755 "/etc/systemd/system/dnsmasq.service"
+systemctl daemon-reload >/dev/null 2>&1
+systemctl enable dnsmasq.service >/dev/null 2>&1
+systemctl start dnsmasq.service >/dev/null 2>&1
 
 # ocserv``
 rm -rf /etc/ocserv
@@ -71,13 +69,10 @@ chmod -R 755 /etc/ocserv
 
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
-# if [ -f /etc/crontab ]; then
-#  sed -i '/\/etc\/ocserv/d' /etc/crontab
-#  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
-#  sed -i "\$a\@reboot root bash /etc/ocserv/ocserv.d >>/dev/null 2>&1 &\n\n\n" /etc/crontab
-# fi
-mv /etc/ocserv/ocserv.service /etc/systemd/system/
-systemctl enable ocserv.service
+if [ -f /etc/ocserv/ctl.sh ]; then
+  /bin/bash /etc/ocserv/template/client.sh -i
+  /bin/bash /etc/ocserv/ctl.sh init
+fi
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
