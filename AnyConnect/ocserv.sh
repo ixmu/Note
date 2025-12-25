@@ -35,8 +35,8 @@ fi
 rm -rf /etc/dnsmasq.d
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_${VER}_v2.90.tar.gz"
 tar --overwrite -xvf /tmp/dnsmasq_bin.tar.gz -C /
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar"
-tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar.gz"
+tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
 # if [ -f /etc/crontab ]; then
@@ -44,15 +44,15 @@ sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 # while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
 # sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
 # fi
-curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/dnsmasq.service > /etc/systemd/system/dnsmasq.service
+mv /etc/dnsmasq.d/dnsmasq.service /etc/systemd/
 systemctl enable dnsmasq.service
 
 # ocserv``
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.3.0.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /
-wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar"
-tar --overwrite -xvf /tmp/ocserv_config.tar -C /
+wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar.gz"
+tar --overwrite -xvf /tmp/ocserv_config.tar.gz -C /
 
 # server cert key file: /etc/ocserv/server.key.pem
 openssl genrsa -out /etc/ocserv/server.key.pem 2048
@@ -76,9 +76,7 @@ chmod -R 755 /etc/ocserv
 #  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
 #  sed -i "\$a\@reboot root bash /etc/ocserv/ocserv.d >>/dev/null 2>&1 &\n\n\n" /etc/crontab
 # fi
-curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ocserv.service > /etc/systemd/system/ocserv.service
-curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ctl.sh > /etc/ocserv/ctl.sh
-chmod +x /etc/ocserv/ctl.sh
+mv /etc/ocserv/ocserv.service /etc/systemd/system/
 systemctl enable ocserv.service
 
 # Sysctl
