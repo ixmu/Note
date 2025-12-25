@@ -48,9 +48,8 @@ tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_config.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_config.tar.gz -C /
 
-# server cert key file: /etc/ocserv/server.key.pem
+# server cert key file: /etc/ocserv/server.key.pem # server cert file: /etc/ocserv/server.cert.pem
 openssl genrsa -out /etc/ocserv/server.key.pem 2048
-# server cert file: /etc/ocserv/server.cert.pem
 openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocserv/server.cert.pem -subj "/C=/ST=/L=/O=/OU=/CN=${PublicIP}"
 
 # Default User
@@ -72,8 +71,6 @@ if [ -f /etc/sysctl.conf ]; then
   while [ -z "$(sed -n '$p' /etc/sysctl.conf)" ]; do sed -i '$d' /etc/sysctl.conf; done
   sed -i '$a\net.ipv4.ip_forward = 1\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' /etc/sysctl.conf
 fi
-
-[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config;
 
 # Timezone
 cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
