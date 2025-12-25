@@ -99,11 +99,6 @@ fi
 cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
 echo "Asia/Shanghai" >/etc/timezone
 
-#优化Musl兼容配置
-sed -i '/^run-as-user = nobody/ s/^/# /' /etc/ocserv/ocserv.conf
-sed -i '/^run-as-group = daemon/ s/^/# /' /etc/ocserv/ocserv.conf
-sed -i 's/ocserv --config/\/usr\/sbin\/ocserv --config/g' /etc/ocserv/ocserv.d
-
 ## Not Reboot
 [ "$1" == "NotReboot" ] && exit 0
 ## Rebot Now
