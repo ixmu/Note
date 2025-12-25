@@ -57,10 +57,10 @@ if [ "$ARG" == "CHECK" ]; then
   cat /proc/net/tcp |grep -q "^\s*[0-9]\+:\s*[0-9A-Za-z]\+:${TCPHEX}\s*[0-9A-Za-z]\+:[0-9A-Za-z]\+\s*0A\s*"
   [ "$?" -eq 0 ] && exit 0 || exit 1
 elif [ "$ARG" == "INIT" ]; then
-	Address="$(GetAddress)"
-	[ -n "$Address" ] || Address="0.0.0.0"
-	bash "${ConfigPath}/template/client.sh" -i "$Address"
-	[ "$?" -eq 0 ] || exit 1
+        Address="$(GetAddress)"
+        [ -n "$Address" ] || Address="0.0.0.0"
+        bash "${ConfigPath}/template/client.sh" -i "$Address"
+        [ "$?" -eq 0 ] || exit 1
   chown -R root:root "${ConfigPath}"
   chmod -R 755 "${ConfigPath}"
   if [ -d "/etc/systemd/system" ] && [ -f "${ConfigPath}/ocserv.service" ]; then
