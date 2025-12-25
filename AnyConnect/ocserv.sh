@@ -41,9 +41,8 @@ sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
 cp -rf "/etc/dnsmasq.d/dnsmasq.service" "/etc/systemd/system/dnsmasq.service"
 chmod 755 "/etc/systemd/system/dnsmasq.service"
-systemctl daemon-reload >/dev/null 2>&1
-systemctl enable dnsmasq.service >/dev/null 2>&1
-systemctl start dnsmasq.service >/dev/null 2>&1
+systemctl daemon-reload
+systemctl enable dnsmasq.service --now
 
 # ocserv``
 rm -rf /etc/ocserv
@@ -69,10 +68,11 @@ chmod -R 755 /etc/ocserv
 
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
-if [ -f /etc/ocserv/ctl.sh ]; then
-  /bin/bash /etc/ocserv/template/client.sh -i
-  /bin/bash /etc/ocserv/ctl.sh init
-fi
+# if [ -f /etc/ocserv/ctl.sh ]; then
+#  /bin/bash /etc/ocserv/template/client.sh -i
+#  /bin/bash /etc/ocserv/ctl.sh init
+# fi
+systemctl daemon-reload
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
