@@ -79,6 +79,7 @@ chmod -R 755 /etc/ocserv
 curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ocserv.service > /etc/systemd/system/ocserv.service
 curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ctl.sh > /etc/ocserv/ctl.sh
 chmod +x /etc/ocserv/ctl.sh
+systemctl enable ocserv.service
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
