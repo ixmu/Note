@@ -1,7 +1,8 @@
 [Unit]
 Description=dnsmasq
 Documentation=man:dnsmasq(8)
-After=dbus.service local-fs.target network.target
+After=network-online.target
+After=dbus.service
 
 [Service]
 Type=simple
