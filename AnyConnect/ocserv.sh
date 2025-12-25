@@ -70,7 +70,7 @@ if [ -f /etc/ocserv/ctl.sh ]; then
   /bin/bash /etc/ocserv/template/client.sh -i
   /bin/bash /etc/ocserv/ctl.sh init
 fi
-
+systemctl enable ocserv.service --now
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
