@@ -44,7 +44,7 @@ chmod 755 "/etc/systemd/system/dnsmasq.service"
 systemctl daemon-reload
 systemctl enable dnsmasq.service --now
 
-# ocserv``
+# ocserv
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.3.0.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /
@@ -68,11 +68,11 @@ chmod -R 755 /etc/ocserv
 
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
-# if [ -f /etc/ocserv/ctl.sh ]; then
-#  /bin/bash /etc/ocserv/template/client.sh -i
-#  /bin/bash /etc/ocserv/ctl.sh init
-# fi
-systemctl daemon-reload
+if [ -f /etc/ocserv/ctl.sh ]; then
+  /bin/bash /etc/ocserv/template/client.sh -i
+  /bin/bash /etc/ocserv/ctl.sh init
+fi
+
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
