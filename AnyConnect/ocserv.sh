@@ -39,13 +39,15 @@ wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar "https://raw.githubus
 tar --overwrite -xvf /tmp/dnsmasq_config.tar -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 
-if [ -f /etc/crontab ]; then
-  sed -i '/dnsmasq/d' /etc/crontab
-  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
-  sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
-fi
+# if [ -f /etc/crontab ]; then
+# sed -i '/dnsmasq/d' /etc/crontab
+# while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
+# sed -i "\$a\@reboot root /usr/sbin/dnsmasq >>/dev/null 2>&1 &\n\n\n" /etc/crontab
+# fi
+curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/dnsmasq.service > /etc/systemd/system/dnsmasq.service
+systemctl enable dnsmasq.service
 
-# ocserv
+# ocserv``
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/ocserv_${VER}_v1.3.0.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /
@@ -62,34 +64,37 @@ UserPasswd=`openssl passwd ixmu_net`
 echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
-bash /etc/ocserv/template/client.sh
+# bash /etc/ocserv/template/client.sh
 
 chown -R root:root /etc/ocserv
 chmod -R 755 /etc/ocserv
 
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
-if [ -f /etc/crontab ]; then
-  sed -i '/\/etc\/ocserv/d' /etc/crontab
-  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
-  sed -i "\$a\@reboot root bash /etc/ocserv/ocserv.d >>/dev/null 2>&1 &\n\n\n" /etc/crontab
-fi
+# if [ -f /etc/crontab ]; then
+#  sed -i '/\/etc\/ocserv/d' /etc/crontab
+#  while [ -z "$(sed -n '$p' /etc/crontab)" ]; do sed -i '$d' /etc/crontab; done
+#  sed -i "\$a\@reboot root bash /etc/ocserv/ocserv.d >>/dev/null 2>&1 &\n\n\n" /etc/crontab
+# fi
+curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ocserv.service > /etc/systemd/system/ocserv.service
+curl https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/AnyConnect/build/ctl.sh > /etc/ocserv/ctl.sh
+chmod +x /etc/ocserv/ctl.sh
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
   sed -i '/^net\.ipv4\.ip_forward/d' /etc/sysctl.conf
   while [ -z "$(sed -n '$p' /etc/sysctl.conf)" ]; do sed -i '$d' /etc/sysctl.conf; done
-  sed -i '$a\net.ipv4.ip_forward = 1\n\n' /etc/sysctl.conf
+  sed -i '$a\net.ipv4.ip_forward = 1\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' /etc/sysctl.conf
 fi
 
 # Limit
-if [[ -f /etc/security/limits.conf ]]; then
-  LIMIT='262144'
-  sed -i '/^\(\*\|root\).*\(hard\|soft\).*\(memlock\|nofile\)/d' /etc/security/limits.conf
-  while [ -z "$(sed -n '$p' /etc/security/limits.conf)" ]; do sed -i '$d' /etc/security/limits.conf; done
-  echo -ne "*\thard\tnofile\t${LIMIT}\n*\tsoft\tnofile\t${LIMIT}\nroot\thard\tnofile\t${LIMIT}\nroot\tsoft\tnofile\t${LIMIT}\n" >>/etc/security/limits.conf
-  echo -ne "*\thard\tmemlock\t${LIMIT}\n*\tsoft\tmemlock\t${LIMIT}\nroot\thard\tmemlock\t${LIMIT}\nroot\tsoft\tmemlock\t${LIMIT}\n\n\n" >>/etc/security/limits.conf
-fi
+# if [[ -f /etc/security/limits.conf ]]; then
+#   LIMIT='262144'
+#   sed -i '/^\(\*\|root\).*\(hard\|soft\).*\(memlock\|nofile\)/d' /etc/security/limits.conf
+#   while [ -z "$(sed -n '$p' /etc/security/limits.conf)" ]; do sed -i '$d' /etc/security/limits.conf; done
+#   echo -ne "*\thard\tnofile\t${LIMIT}\n*\tsoft\tnofile\t${LIMIT}\nroot\thard\tnofile\t${LIMIT}\nroot\tsoft\tnofile\t${LIMIT}\n" >>/etc/security/limits.conf
+#   echo -ne "*\thard\tmemlock\t${LIMIT}\n*\tsoft\tmemlock\t${LIMIT}\nroot\thard\tmemlock\t${LIMIT}\nroot\tsoft\tmemlock\t${LIMIT}\n\n\n" >>/etc/security/limits.conf
+# fi
 
 # SSH
 #[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?Port .*/Port 9527/g" /etc/ssh/sshd_config;
