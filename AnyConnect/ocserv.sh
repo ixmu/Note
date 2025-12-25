@@ -39,7 +39,7 @@ wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githu
 tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
 systemctl daemon-reload
-systemctl enable dnsmasq.service --now
+systemctl enable dnsmasq.service --now >>/dev/null 2>&1
 
 # ocserv
 rm -rf /etc/ocserv
@@ -63,7 +63,7 @@ if [ -f /etc/ocserv/ctl.sh ]; then
   /bin/bash /etc/ocserv/template/client.sh -i
   /bin/bash /etc/ocserv/ctl.sh init
 fi
-systemctl enable ocserv.service --now
+systemctl enable ocserv.service --now >>/dev/null 2>&1
 
 # Sysctl
 if [ -f /etc/sysctl.conf ]; then
