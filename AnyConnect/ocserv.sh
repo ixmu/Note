@@ -38,7 +38,6 @@ tar --overwrite -xvf /tmp/dnsmasq_bin.tar.gz -C /
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/build/dnsmasq_config.tar.gz"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
-
 systemctl daemon-reload
 systemctl enable dnsmasq.service --now
 
@@ -59,11 +58,6 @@ UserPasswd=`openssl passwd ixmu_net`
 echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n" >/etc/ocserv/ocpasswd
 [ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
-# bash /etc/ocserv/template/client.sh
-
-chown -R root:root /etc/ocserv
-chmod -R 755 /etc/ocserv
-
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
 if [ -f /etc/ocserv/ctl.sh ]; then
@@ -79,26 +73,9 @@ if [ -f /etc/sysctl.conf ]; then
   sed -i '$a\net.ipv4.ip_forward = 1\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' /etc/sysctl.conf
 fi
 
-# Limit
-# if [[ -f /etc/security/limits.conf ]]; then
-#   LIMIT='262144'
-#   sed -i '/^\(\*\|root\).*\(hard\|soft\).*\(memlock\|nofile\)/d' /etc/security/limits.conf
-#   while [ -z "$(sed -n '$p' /etc/security/limits.conf)" ]; do sed -i '$d' /etc/security/limits.conf; done
-#   echo -ne "*\thard\tnofile\t${LIMIT}\n*\tsoft\tnofile\t${LIMIT}\nroot\thard\tnofile\t${LIMIT}\nroot\tsoft\tnofile\t${LIMIT}\n" >>/etc/security/limits.conf
-#   echo -ne "*\thard\tmemlock\t${LIMIT}\n*\tsoft\tmemlock\t${LIMIT}\nroot\thard\tmemlock\t${LIMIT}\nroot\tsoft\tmemlock\t${LIMIT}\n\n\n" >>/etc/security/limits.conf
-# fi
-
-# SSH
-#[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?Port .*/Port 9527/g" /etc/ssh/sshd_config;
-#[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config;
-#[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config;
+[ -f /etc/ssh/sshd_config ] && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g" /etc/ssh/sshd_config;
 
 # Timezone
 cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
 echo "Asia/Shanghai" >/etc/timezone
 
-## Not Reboot
-[ "$1" == "NotReboot" ] && exit 0
-## Rebot Now
-read -n 1 -p "Press <ENTER> to reboot..."
-reboot
