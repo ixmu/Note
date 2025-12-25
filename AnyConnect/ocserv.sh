@@ -55,7 +55,6 @@ openssl req -new -x509 -days 3650 -key /etc/ocserv/server.key.pem -out /etc/ocse
 # Default User
 UserPasswd=`openssl passwd ixmu_net`
 echo -e "Default:Default:${UserPasswd}\nRoute:Route:${UserPasswd}\nNoRoute:NoRoute:${UserPasswd}\nNull:Null:${UserPasswd}\n" >/etc/ocserv/ocpasswd
-[ -d /etc/ocserv/group ] && echo -n >/etc/ocserv/group/Null
 
 [ -d /lib/systemd/system ] && find /lib/systemd/system -name 'ocserv*' -delete
 
