@@ -1,0 +1,32 @@
+#!/sbin/openrc-run
+
+
+description="OpenConnect SSL VPN server"
+command="/usr/sbin/ocserv"
+command_args="--foreground --config /etc/ocserv/ocserv.conf"
+pidfile="/run/${RC_SVCNAME}.pid"
+command_background="yes"
+respawn_delay=3
+respawn_max=0 
+depend() {
+    need net
+    use dbus
+    after firewall
+}
+
+start_pre() {
+    /bin/bash /etc/ocserv/ctl.sh
+}
+
+start_post() {
+    /bin/bash /etc/ocserv/ctl.sh CHECK
+}
+
+
+reload() {
+    ebegin "Reloading ${RC_SVCNAME}"
+    start-stop-daemon --signal HUP --pidfile "${pidfile}"
+    eend $?
+}
+
+retry="KILL/5"

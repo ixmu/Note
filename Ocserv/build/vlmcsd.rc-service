@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+
+
+description="vlmcsd KMS Emulator Service"
+command="/usr/sbin/vlmcsdmulti"
+command_args="vlmcsd -D -d -v"
+respawn_delay=3
+respawn_max=0
+pidfile="/run/${RC_SVCNAME}.pid"
+command_background="yes"
+depend() {
+    need net
+    use dbus
+}
+
+start_post() {
+    ebegin "Running post-start check for ${RC_SVCNAME}"
+    /bin/sh -c "sleep 3 && /usr/sbin/vlmcsdmulti vlmcs"
+    eend $?
+}
+
+retry="KILL/5"

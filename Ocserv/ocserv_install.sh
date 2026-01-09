@@ -52,7 +52,7 @@ systemctl enable dnsmasq.service --now >>/dev/null 2>&1
 # ocserv
 rm -rf /etc/ocserv
 wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.xz "https://github.com/ixmu/openconnect-server-static/releases/download/v${OCSERV_VERSION}/openconnect-server-linux-${Arch}.tar.xz"
-tar --overwrite -xvf /tmp/ocserv_bin.tar.xz -C /
+tar --overwrite -xvf /tmp/ocserv_bin.tar.xz -C /usr/local/
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv_config.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_config.tar.gz -C /
 curl -o /etc/systemd/system/ocserv.service https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv.service
