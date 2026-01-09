@@ -34,22 +34,22 @@ bash /etc/ocserv/template/client.sh -o <OrgName> -i <CN>
 
 # 设置用户证书
 bash /etc/ocserv/template/client.sh -o <OrgName> -g <GroupName> -p <PASSWORD>
-## 示例: bash /etc/ocserv/template/client.sh -o "MoeClub" -g "NoRoute" -p "P@Ssw0rd"
+## 示例: bash /etc/ocserv/template/client.sh -o "ixmu" -g "NoRoute" -p "P@Ssw0rd"
 
 ```
 
 # ocserv.sh Debian x64 8+ / CentOS 6+ / Ubuntu 14+)
 ```
-bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/MoeClub/Note/master/AnyConnect/ocserv.sh")
+bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/master/AnyConnect/ocserv.sh")
 ```
-## 安装后需要的一些工作([域名证书可点此查看申请步骤](https://github.com/MoeClub/AlphaSSL))
+## 安装后需要的一些工作([域名证书可点此查看申请步骤](https://github.com/ixmu/AlphaSSL))
 - 将域名证书上传至 `/etc/ocserv/server.cert.pem`
 - 将域名证书私钥上传至 `/etc/ocserv/server.key.pem`
 - 如果有多组服务器, 备份保存CA证书 `/etc/ocserv/template/ca.cert.pem` 和 `/etc/ocserv/template/ca.key.pem`.      
   (替换 `ca.cert.pem` 文件即可使用)
-- **预设用户名**为`Default`,`NoRoute`; **预设密码**为`MoeClub`.(可自行更改`/etc/ocserv/ocpasswd`)      
+- **预设用户名**为`Default`,`NoRoute`; **预设密码**为`ixmu`.(可自行更改`/etc/ocserv/ocpasswd`)      
   - 用户密码格式: `<用户名>:<用户组>:<用户密码密文>`       
-  - 用户密码密文: `openssl passwd MoeClub` (`MoeClub`为密码)     
+  - 用户密码密文: `openssl passwd ixmu` (`ixmu`为密码)     
 - 注意事项(**因系统限制**)
   - iOS, MacOS, Windows 用户请使用 `NoRoute` 分组, 预设用户名为 `NoRoute`.
   - Android 用户请使用 `Default` 分组, 预设用户名为 `Default`.
@@ -65,6 +65,6 @@ bash /etc/ocserv/template/client.sh -g <分组名字> -p <证书密码,苹果设
 
 # 使用 BBR 加速纯 TCP 模式的流量
 ```
-bash <(wget --no-check-certificate -qO- 'https://raw.githubusercontent.com/MoeClub/apt/master/bbr/bbr.sh')
+bash <(wget --no-check-certificate -qO- 'https://raw.githubusercontent.com/ixmu/apt/master/bbr/bbr.sh')
 
 ```
