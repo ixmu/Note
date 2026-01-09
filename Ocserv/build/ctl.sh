@@ -69,8 +69,7 @@ elif [ "$ARG" == "INIT" ]; then
     cp -rf "${ConfigPath}/ocserv.service" "/etc/systemd/system/ocserv.service"
     chmod 755 "/etc/systemd/system/ocserv.service"
     systemctl daemon-reload >/dev/null 2>&1
-    systemctl enable ocserv.service >/dev/null 2>&1
-    systemctl start ocserv.service >/dev/null 2>&1
+    systemctl enable ocserv.service --now >/dev/null 2>&1
   fi
   GenPasswd;
   echo -e "\nPassword File: ${ConfigPath}/ocpasswd"
