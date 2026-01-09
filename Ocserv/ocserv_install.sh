@@ -28,7 +28,7 @@ PublicIP="$(wget --no-check-certificate -4 -qO- http://checkip.amazonaws.com)"
 # vlmcs
 if [ "$Arch" == "amd64" ]; then
   rm -rf /etc/vlmcs
-  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/ixmu/Note/master/Ocerv/build/vlmcsd.tar"
+  wget --no-check-certificate -4 -qO /tmp/vlmcs.tar "https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/vlmcsd.tar"
   tar --overwrite -xvf /tmp/vlmcs.tar -C /
   curl -o /etc/systemd/system/vlmcsd.service https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/vlmcsd.service
   systemctl daemon-reload
