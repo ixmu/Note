@@ -7,11 +7,16 @@ OCSERV_VERSION="1.4.0"
 EthName=`cat /proc/net/dev |grep ':' |cut -d':' -f1 |sed 's/\s//g' |grep -iv '^lo\|^sit\|^stf\|^gif\|^dummy\|^vmnet\|^vir\|^gre\|^ipip\|^ppp\|^bond\|^tun\|^tap\|^ip6gre\|^ip6tnl\|^teql\|^ocserv\|^vpn' |sed -n '1p'`
 [ -n "$EthName" ] || exit 1
 
-command -v yum >>/dev/null 2>&1
-if [ $? -eq 0 ]; then
-  yum install -y curl wget nc xz openssl gnutls-utils iptables-services cronie
+if command -v yum >/dev/null 2>&1; then
+    yum install -y curl wget nc xz openssl gnutls-utils iptables-services cronie
+elif command -v apt >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y curl wget openssl gnutls-bin xz-utils ncat iptables iptables-persistent cron
+elif command -v apk >/dev/null 2>&1; then
+    apk add curl wget openssl gnutls-utils xz nmap-ncat iptables iptables-openrc
 else
-  apt-get install -y curl wget openssl gnutls-bin xz-utils ncat iptables iptables-persistent cron
+    echo "Not Support OS."
+    exit 1
 fi
 
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
