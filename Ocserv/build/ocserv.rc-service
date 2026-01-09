@@ -2,7 +2,7 @@
 
 
 description="OpenConnect SSL VPN server"
-command="/usr/sbin/ocserv"
+command="/usr/local/sbin/ocserv"
 command_args="--foreground --config /etc/ocserv/ocserv.conf"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
