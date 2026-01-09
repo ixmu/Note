@@ -1,0 +1,230 @@
+mixed-port: 1081
+redir-port: 1082
+tproxy-port: 1083
+iptables:
+  enable: true
+  inbound-interface: eth0
+allow-lan: true
+bind-address: '*'
+mode: rule
+log-level: debug
+ipv6: true
+find-process-mode: off
+external-controller: 0.0.0.0:80
+external-controller-tls: 0.0.0.0:443
+secret: "123456"
+external-ui: /etc/mihomo/ui
+profile:
+  store-selected: true
+  store-fake-ip: false
+unified-delay: true
+tcp-concurrent: true
+interface-name: eth0
+routing-mark: 6666
+geodata-mode: true
+geodata-loader: standard
+geox-url:
+  geosite: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  geoip: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip-lite.dat"
+  mmdb: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country-lite.mmdb"
+
+tun:
+  enable: false
+  stack: mixed
+  device: mihomo
+  auto-route: true
+  auto-detect-interface: true
+  exclude-interface:
+    - eth0
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+  strict-route: false
+  mtu: 9000
+  gso: true
+  gso-max-size: 65536
+  udp-timeout: 300
+  endpoint-independent-nat: false
+  inet4-route-exclude-address:
+  - 10.0.0.0/8
+
+
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  override-destination: false
+  parse-pure-ip: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+
+dns:
+  enable: true
+  prefer-h3: false
+  listen: 0.0.0.0:53
+  ipv6: true
+  ipv6-timeout: 300
+  default-nameserver:
+    - udp://10.0.0.1
+    - 223.5.5.5
+    - 119.29.29.29
+  enhanced-mode: redir-host
+  nameserver:
+    - udp://10.0.0.1
+  nameserver-policy:
+    'geosite:cn': udp://10.0.0.1
+  fallback:
+    - quic://dns.adguard.com:784#DNS
+    - https://cloudflare-dns.com/dns-query#DNS
+    - https://dns.google/dns-query#DNS
+  fallback-filter:
+    geoip: true
+    geoip-code: cn
+    geosite:
+      - google
+      - cloudflare
+      - geolocation-!cn
+
+proxy-groups:
+  - name: "Fallback"
+    type: fallback
+    use:
+      - self-build
+    url: 'http://www.google.com/generate_204'
+    interval: 30
+
+  - name: Proxy
+    type: select
+    use:
+      - self-build
+    proxies:
+      - DIRECT
+      - Fallback
+
+  - name: DNS
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+      - Fallback
+
+  - name: Speedtest
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+      - DIRECT
+
+  - name: Telegram
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+      - Fallback
+
+  - name: YouTube
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+
+  - name: Ai&Bing
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+      - Fallback
+
+  - name: Microsoft
+    type: select
+    use:
+      - self-build
+    proxies:
+      - Proxy
+      - Fallback
+
+
+rule-providers:
+  YouTube:
+    type: http
+    behavior: classical
+    path: ./rule-providers/YouTube.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/YouTube/YouTube.yaml
+    interval: 86400
+
+  Telegram:
+    type: http
+    behavior: classical
+    path: ./rule-providers/Telegram.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Telegram/Telegram.yaml
+    interval: 86400
+
+  Speedtest:
+    type: http
+    behavior: classical
+    path: ./rule-providers/Speedtest.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Speedtest/Speedtest.yaml
+    interval: 86400
+
+  Bing:
+    type: http
+    behavior: classical
+    path: ./rule-providers/Bing.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Bing/Bing.yaml
+
+  OpenAI:
+    type: http
+    behavior: classical
+    path: ./rule-providers/OpenAI.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/OpenAI/OpenAI.yaml
+
+  Microsoft:
+    type: http
+    behavior: classical
+    path: ./rule-providers//Microsoft.yaml
+    url: https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Microsoft/Microsoft.yaml
+
+
+proxy-providers:
+  # subscribe:
+    # type: http
+    # url: " "
+    # interval: 86400
+    # path: ./sub.yaml
+    # health-check:
+      # enable: true
+      # interval: 300
+      # url: http://www.google.com/generate_204
+
+  self-build:
+    type: file
+    path: ./self-build.yaml
+    health-check:
+      enable: true
+      url: http://www.google.com/generate_204
+      interval: 600
+
+rules:
+  # - AND,((DST-PORT,443),(NETWORK,udp),(RULE-SET,YouTube)),REJECT
+  - GEOSITE,win-spy,REJECT
+  - RULE-SET,YouTube,YouTube
+  - RULE-SET,Telegram,Telegram
+  - RULE-SET,Speedtest,Speedtest
+  - RULE-SET,Bing,Ai&Bing
+  - RULE-SET,OpenAI,Ai&Bing
+  - DOMAIN-KEYWORD,copilot,Ai&Bing
+  - GEOSITE,geolocation-cn,DIRECT
+  - DST-PORT,6881-6889/12345/54321/15000,DIRECT
+  - SRC-PORT,6881-6889/12345/54321/15000,DIRECT
+  - GEOSITE,category-games@cn,DIRECT
+  - GEOSITE,win-update,Microsoft
+  - GEOIP,private,DIRECT
+  - MATCH,Proxy
