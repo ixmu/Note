@@ -1,18 +1,3 @@
-# Preferences
-```
-# profile.xml
-## windows: %ProgramData%\Cisco\Cisco AnyConnect Secure Mobility Client\Profile\profile.xml
-## mac/linux: /opt/cisco/anyconnect/profile/profile.xml
-
-# preferences_global.xml
-## windows: %ProgramData%\Cisco\Cisco AnyConnect Secure Mobility Client\preferences_global.xml
-## mac/linux: /opt/cisco/anyconnect/.anyconnect_global
-
-# preferences.xml
-## windows: %LocalAppData%\Cisco\Cisco AnyConnect Secure Mobility Client\preferences.xml
-## mac/linux: $Home/.anyconnect
-
-```
 
 # 端口转发
 ```
