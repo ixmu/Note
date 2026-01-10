@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <AnyConnectProfile xmlns="http://schemas.xmlsoap.org/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/encoding/ AnyConnectProfile.xsd">
+
 	<ClientInitialization>
 		<UseStartBeforeLogon UserControllable="false">false</UseStartBeforeLogon>
 		<StrictCertificateTrust>false</StrictCertificateTrust>
 		<RestrictPreferenceCaching>false</RestrictPreferenceCaching>
-		<RestrictTunnelProtocols>false</RestrictTunnelProtocols>
+		<RestrictTunnelProtocols>IPSec</RestrictTunnelProtocols>
 		<BypassDownloader>true</BypassDownloader>
-		<AutoUpdate>false</AutoUpdate>
-		<CertificateStore>All</CertificateStore>
-		<CertificateStoreMac>All</CertificateStoreMac>
-		<CertificateStoreLinux>All</CertificateStoreLinux>
-		<CertificateStoreOverride>true</CertificateStoreOverride>
-		<AuthenticationTimeout>16</AuthenticationTimeout>
 		<WindowsVPNEstablishment>AllowRemoteUsers</WindowsVPNEstablishment>
-		<LinuxVPNEstablishment>AllowRemoteUsers</LinuxVPNEstablishment>
 		<CertEnrollmentPin>pinAllowed</CertEnrollmentPin>
 		<CertificateMatch>
 			<KeyUsage>
@@ -23,5 +17,16 @@
 				<ExtendedMatchKey>ClientAuth</ExtendedMatchKey>
 			</ExtendedKeyUsage>
 		</CertificateMatch>
+
+		<BackupServerList>
+			<HostAddress>localhost</HostAddress>
+		</BackupServerList>
 	</ClientInitialization>
+
+	<ServerList>
+		<HostEntry>
+			<HostName>VPN Server</HostName>
+			<HostAddress>localhost</HostAddress>
+		</HostEntry>
+	</ServerList>
 </AnyConnectProfile>
