@@ -12,6 +12,9 @@ if command -v yum >/dev/null 2>&1; then
 elif command -v apt >/dev/null 2>&1; then
     apt-get update
     apt-get install -y curl wget openssl gnutls-bin xz-utils ncat iptables iptables-persistent cron
+elif command -v apk >/dev/null 2>&1; then
+    apk update
+    apt-get install -y curl wget openssl gnutls-utils xz nmap-ncat iptables dcron
 else
     echo "Shell Script Not Support OS."
     exit 1
