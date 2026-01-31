@@ -26,7 +26,7 @@ function IPTABLES(){
 
 function GenPasswd(){
   echo -ne "\nUserName\tPassword\tGROUP\n\n"
-  RawPasswd="${1:-MoeClub}"
+  RawPasswd="${1:-ixmu}"
   if [ `echo "${RawPasswd}" |grep -o ':' |grep -c ':'` == "2" ]; then
     echo "${RawPasswd}" |grep -q '^-' && echo -n >${ConfigPath}/ocpasswd
     User=`echo "${RawPasswd}"| cut -d':' -f1 |sed 's/[[:space:]]//g' |tr -d '-'`
