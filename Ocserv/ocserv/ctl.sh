@@ -83,7 +83,7 @@ fi
 Ether=`ip route show default |head -n1 |sed 's/.*dev\s*\([0-9a-zA-Z]\+\).*/\1/g'`
 [ -n "$Ether" ] || exit 1
 
-[ -f "${ConfigPath}/config-per-group/NoRoute" ] && Address="$(GetAddress)" && [ -n "$Address" ] &&  sed -i "s/^no-route\s*=\s*.*\/255.255.255.255/no-route = ${Address}\/255.255.255.255/" "${ConfigPath}/group/NoRoute"
+[ -f "${ConfigPath}/config-per-group/NoRoute" ] && Address="$(GetAddress)" && [ -n "$Address" ] &&  sed -i "s/^no-route\s*=\s*.*\/255.255.255.255/no-route = ${Address}\/255.255.255.255/" "${ConfigPath}/config-per-group/NoRoute"
 
 IPTABLES "iptables -t nat -A POSTROUTING -o ${Ether} -j MASQUERADE"
 [ -n "$NET" ] && IPTABLES "iptables -I FORWARD -d ${NET}/24 -j ACCEPT"
