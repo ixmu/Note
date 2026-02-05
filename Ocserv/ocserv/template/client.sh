@@ -46,7 +46,7 @@ done
 [ "$BLANK" == " " ] && [ -f "$HOME/.rnd" ] || openssl rand -writerand "$HOME/.rnd"
 [ -f "./server-ca.pem" ] && OrgName=`openssl x509 -noout -in "./server-ca.pem" -subject 2>/dev/null |sed 's/.*\s*O\s\+=\s\+\([^,\ ]\+\),.*/\1/'`
 
-[ -n "${OrgName}" ] || OrgName="Black Soft"
+[ -n "${OrgName}" ] || OrgName="BlackSoft"
 [ -n "${GroupName}" ] || GroupName="Default"
 
 
