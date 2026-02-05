@@ -49,6 +49,7 @@ done
 [ -n "${OrgName}" ] || OrgName="BlackSoft"
 [ -n "${GroupName}" ] || GroupName="Default"
 
+openssl dhparam -out ../server-dh.pem 2048
 
 if [ ! -f ./server-ca.pem -o ! -f ./server-ca-key.pem ] || [ -n "$INIT" ] ; then
   openssl req -x509 -sha256 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 -subj "/C=${BLANK}${BLANK}/ST=${BLANK}/L=${BLANK}/OU=${BLANK}/O=${OrgName}/CN=${OrgName} CA" -addext "keyUsage=critical, keyCertSign, cRLSign" -rand /dev/urandom -outform PEM -keyout "./server-ca-key.pem" -out "./server-ca.pem"  >/dev/null 2>&1
@@ -80,7 +81,5 @@ openssl pkcs12 $legacy -export -inkey "./user.key.pem" -in "./user.cert.pem" -na
 
 [ $? -eq '0' ] && echo -e "\nSuccess! \nGROUP\t\tPASSWORD\n${GroupName}\t\t$PASSWORD\n" || echo -e "\nFail! \n";
 rm -rf ./user.csr.pem ./user.key.pem ./user.cert.pem
-
-openssl dhparam -out ../server-dh.pem 2048
 
 exit 0
