@@ -40,7 +40,7 @@ function GenPasswd(){
   else
     echo -n >${ConfigPath}/ocpasswd
     UserPasswd=`openssl passwd ${RawPasswd}`
-    for GroupName in `find "${ConfigPath}/group" -type f`
+    for GroupName in `find "${ConfigPath}/config-per-group" -type f`
       do
         [ -n "$GroupName" ] || continue
         User=`basename "$GroupName"`
