@@ -80,6 +80,7 @@ openssl pkcs12 $legacy -export -inkey "./user.key.pem" -in "./user.cert.pem" -na
 
 [ $? -eq '0' ] && echo -e "\nSuccess! \nGROUP\t\tPASSWORD\n${GroupName}\t\t$PASSWORD\n" || echo -e "\nFail! \n";
 rm -rf ./user.csr.pem ./user.key.pem ./user.cert.pem
+
 openssl dhparam -out ../server-dh.pem 2048
 
 exit 0
