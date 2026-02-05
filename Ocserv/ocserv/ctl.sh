@@ -33,7 +33,7 @@ function GenPasswd(){
     UserPasswd=`echo "${RawPasswd}"| cut -d':' -f2 |sed 's/[[:space:]]//g'`
     UserGroup=`echo "${RawPasswd}"| cut -d':' -f3 |sed 's/[[:space:]]//g'`
     [ -n "$User" ] && [ -n "$UserPasswd" ] && [ -n "$UserGroup" ] || { echo -ne "ERROR: Invalid ARG\n" && return 1; }
-    [ -f "${ConfigPath}/group/${UserGroup}" ] || { echo -ne "ERROR: Invalid Group\n" && return 1; }
+    [ -f "${ConfigPath}/config-per-group/${UserGroup}" ] || { echo -ne "ERROR: Invalid Group\n" && return 1; }
     SaltPasswd=`openssl passwd ${UserPasswd}`
     echo -ne "${User}\t\t${UserPasswd}\t\t${UserGroup}\n"
     echo -ne "${User}:${UserGroup}:${SaltPasswd}\n" >>${ConfigPath}/ocpasswd
