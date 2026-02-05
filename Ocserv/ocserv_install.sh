@@ -59,6 +59,7 @@ tar --overwrite -xvf /tmp/ocserv_bin.tar.xz -C /usr/local/
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv_config.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_config.tar.gz -C /
 curl -o /etc/systemd/system/ocserv.service https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv.service
+[ ! -e /usr/sbin/ocserv ] && ln -s /usr/local/sbin/ocserv /usr/sbin/ocserv
 systemctl daemon-reload
 
 
