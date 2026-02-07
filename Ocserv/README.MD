@@ -1,4 +1,4 @@
-# ocserv.sh Debian x64 8+ / CentOS 6+ / Ubuntu 14+)
+# ocserv.sh Debian x64 12)
 ```
 bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/ocserv_install.sh")
 ```
