@@ -70,16 +70,10 @@ if [ -f /etc/ocserv/ctl.sh ]; then
   /bin/bash /etc/ocserv/ctl.sh init
 fi
 
-# Sysctl
-if [ -f /etc/sysctl.conf ]; then
-  sed -i '/^net\.ipv4\.ip_forward/d' /etc/sysctl.conf
-  sed -i '/^net\.ipv6\.conf\.all\.forwarding/d' /etc/sysctl.conf
-  while [ -z "$(sed -n '$p' /etc/sysctl.conf)" ]; do sed -i '$d' /etc/sysctl.conf; done
-  sed -i '$a\net.ipv4.ip_forward = 1\n' /etc/sysctl.conf
-  sed -i '$a\net.ipv6.conf.all.forwarding = 1' /etc/sysctl.conf
-  sed -i '$a\net.core.default_qdisc = fq\n' /etc/sysctl.conf
-  sed -i '$a\net.ipv4.tcp_congestion_control = bbr\n' /etc/sysctl.conf
-fi
+# bbr
+bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/bbr.sh")
+# init
+bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/init.sh")
 
 # Timezone
 cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
