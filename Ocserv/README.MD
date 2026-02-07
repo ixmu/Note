@@ -5,6 +5,6 @@ bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercon
 
 # 使用 BBR 加速纯 TCP 模式的流量
 ```
-bash <(wget --no-check-certificate -qO- 'https://raw.githubusercontent.com/ixmu/apt/master/bbr/bbr.sh')
+bash <(wget --no-check-certificate -qO- 'https://raw.githubusercontent.com/moeclub/apt/master/bbr/bbr.sh')
 
 ```
