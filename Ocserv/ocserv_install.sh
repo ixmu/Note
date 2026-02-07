@@ -74,7 +74,8 @@ fi
 bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/bbr.sh")
 # init
 bash <(wget --no-check-certificate --no-cache -4 -qO- "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/init.sh")
-
+# dnsmasq china option
+curl -sSL https://github.com/felixonmars/dnsmasq-china-list/raw/refs/heads/master/accelerated-domains.china.conf | sed 's/114.114.114.114/39.108.103.13#10053/' >/etc/dnsmasq.d/accelerated-domains.china.conf
 # Timezone
 cp -rf /usr/share/zoneinfo/PRC /etc/localtime 2>/dev/null
 echo "Asia/Shanghai" >/etc/timezone
