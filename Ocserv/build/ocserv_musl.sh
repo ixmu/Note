@@ -17,7 +17,7 @@ VERSION_GNUTLS="3.8.11"
 VERSION_GMP="6.3.0"
 VERSION_NETTLE="3.10.2"
 VERSION_IDN2="2.3.8"
-
+VERSION_LLHTTP="9.3.1"
 
 TRAPRM=""
 TARPKG=""
@@ -37,6 +37,28 @@ function musl_cross(){
 	[ -f "$HOME/.bashrc" ] && sed -i "s/^PATH=.*/PATH=${newPATH////\\/}/" "$HOME/.bashrc"
 	[ -f "/etc/profile" ] && sed -i "s/^export PATH=.*/export PATH=${newPATH////\\/}/" "/etc/profile"
 	echo "export PATH=${newPATH}"
+}
+
+# llhttp
+function build_llhttp(){
+	ARCH="${1:-x86_64}"
+	TMP=`mktemp -d`; TRAPRM="${TRAPRM} ${TMP}"; trap "rm -rf ${TRAPRM# }" EXIT
+	wget --no-check-certificate -qO- "https://github.com/nodejs/llhttp/archive/refs/tags/v${VERSION_LLHTTP}.tar.gz" |tar -xz -C "$TMP" --strip-components=1
+	cd "$TMP"
+	CC="${ARCH}-linux-musl-gcc" \
+	CXX="${ARCH}-linux-musl-g++" \
+	CFLAGS="-I/usr/local/cross/${ARCH}/include -ffloat-store -O0" \
+	LDFLAGS="-L/usr/local/cross/${ARCH}/lib -static -static-libgcc -static-libstdc++ -s -pthread -lpthread" \
+	./configure \
+		--host="${ARCH}-linux-musl" \
+		--prefix="/usr/local/cross/${ARCH}" \
+		--enable-static \
+		--disable-shared
+	[ $? -eq 0 ] || return 1
+	make -j`nproc`
+	[ $? -eq 0 ] || return 1
+	make install
+	return $?
 }
 
 # libev
