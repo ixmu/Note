@@ -1,14 +1,13 @@
 [Unit]
 Description=dnsmasq
 Documentation=man:dnsmasq(8)
-After=network-online.target
-After=dbus.service
+After=dbus.service local-fs.target network.target
 
 [Service]
 Type=simple
 #ExecStartPre=/usr/bin/sh -c "/usr/sbin/iptables -C INPUT -p tcp --dport 53 -j DROP 2>/dev/null || /usr/sbin/iptables -I INPUT -p tcp --dport 53 -j DROP"
 #ExecStartPre=/usr/bin/sh -c "/usr/sbin/iptables -C OUTPUT -p tcp --sport 53 -j DROP 2>/dev/null || /usr/sbin/iptables -I OUTPUT -p tcp --sport 53 -j DROP"
-ExecStart=/usr/local/sbin/dnsmasq -d -q
+ExecStart=/usr/sbin/dnsmasq -d -q
 ExecStop=/bin/kill -KILL $MAINPID
 RestartSec=3s
 Restart=always
