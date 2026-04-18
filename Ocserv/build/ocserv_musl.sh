@@ -5,7 +5,7 @@
 # docker exec -it alpine /bin/sh
 
 apk update
-apk add wget xz sed openssl gcc coreutils patch file autoconf automake make linux-headers gperf musl-dev gnutls-dev gnutls-utils
+apk add wget xz sed openssl gcc coreutils patch file autoconf automake make linux-headers gperf musl-dev gnutls-dev gnutls-utils cmake make build-base
 
 
 VERSION_OCSERV="1.4.1"
@@ -43,17 +43,17 @@ function musl_cross(){
 function build_llhttp(){
 	ARCH="${1:-x86_64}"
 	TMP=`mktemp -d`; TRAPRM="${TRAPRM} ${TMP}"; trap "rm -rf ${TRAPRM# }" EXIT
-	wget --no-check-certificate -qO- "https://github.com/nodejs/llhttp/archive/refs/tags/v${VERSION_LLHTTP}.tar.gz" |tar -xz -C "$TMP" --strip-components=1
+	wget --no-check-certificate -qO- "https://github.com/nodejs/llhttp/archive/refs/tags/release/v${VERSION_LLHTTP}.tar.gz" |tar -xz -C "$TMP" --strip-components=1
 	cd "$TMP"
 	CC="${ARCH}-linux-musl-gcc" \
 	CXX="${ARCH}-linux-musl-g++" \
 	CFLAGS="-I/usr/local/cross/${ARCH}/include -ffloat-store -O0" \
 	LDFLAGS="-L/usr/local/cross/${ARCH}/lib -static -static-libgcc -static-libstdc++ -s -pthread -lpthread" \
-	./configure \
-		--host="${ARCH}-linux-musl" \
-		--prefix="/usr/local/cross/${ARCH}" \
-		--enable-static \
-		--disable-shared
+	cmake \
+    -DBUILD_STATIC_LIBS=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local/cross/${ARCH}
 	[ $? -eq 0 ] || return 1
 	make -j`nproc`
 	[ $? -eq 0 ] || return 1
@@ -330,6 +330,8 @@ function build_ocserv(){
 	LIBGNUTLS_LIBS="-L/usr/local/cross/${ARCH}/lib -lgnutls -lgmp -lnettle -lhogweed -lidn2" \
 	LIBLZ4_CFLAGS="-I/usr/local/cross/${ARCH}/include" \
 	LIBLZ4_LIBS="-L/usr/local/cross/${ARCH}/lib -llz4" \
+	LIBLLHTTP_CFLAGS="-I/usr/local/cross/${ARCH}/include" \
+	LIBLLHTTP_LIBS="-L/usr/local/cross/${ARCH}/lib -lllhttp" \
 	CFLAGS="-I/usr/local/cross/${ARCH}/include -ffloat-store -O0" \
 	LDFLAGS="-L/usr/local/cross/${ARCH}/lib -s -w -static -no-pie" \
   ac_cv_file__proc_self_exe=yes \
@@ -394,6 +396,8 @@ function build() {
 	build_libseccomp "${ARCH}"
 	[ $? -eq 0 ] || return 1
 	build_lz4 "${ARCH}"
+	[ $? -eq 0 ] || return 1
+	build_llhttp "${ARCH}"
 	[ $? -eq 0 ] || return 1
 	build_ocserv "${ARCH}"
 	[ $? -eq 0 ] || return 1
