@@ -46,4 +46,3 @@ if [ "$dVer" != "0" ]; then
 
   dnsmasq -v
 fi
-
