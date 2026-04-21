@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DSNMASQ_VERSION="2.90"
+DSNMASQ_VERSION="2.92"
 OCSERV_VERSION="1.4.0"
 
 [ $EUID -ne 0 ] && echo "Error:This script must be run as root!" && exit 1
@@ -23,7 +23,7 @@ fi
 XCMDS=("wget" "tar" "xz" "nc" "openssl" "certtool")
 for XCMD in "${XCMDS[@]}"; do command -v "$XCMD" >>/dev/null 2>&1; [ $? -ne 0 ] && echo "Not Found $XCMD."; done
 
-case `uname -m` in aarch64|arm64) Arch="arm64";; x86_64|amd64) Arch="amd64";; *) Arch="";; esac
+case `uname -m` in aarch64|arm64) Arch="aarch64";; x86_64|amd64) Arch="x86_64";; *) Arch="";; esac
 [ ! -n "$Arch" ] && echo "Arch Not Support! " && exit 1
 
 
@@ -43,8 +43,8 @@ fi
 
 # dnsmasq
 rm -rf /etc/dnsmasq.d
-wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.xz "https://github.com/ixmu/dnsmasq-static/releases/download/v${DSNMASQ_VERSION}/dnsmasq-linux-${Arch}.tar.xz"
-tar --overwrite -xvf /tmp/dnsmasq_bin.tar.xz -C /usr/local/
+wget --no-check-certificate -4 -qO /tmp/dnsmasq_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/dnsmasq_${Arch}_v${DSNMASQ_VERSION}.tar.gz"
+tar --overwrite -xvf /tmp/dnsmasq_bin.tar.gz -C /usr/local/
 wget --no-check-certificate -4 -qO /tmp/dnsmasq_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/dnsmasq_config.tar.gz"
 tar --overwrite -xvf /tmp/dnsmasq_config.tar.gz -C /
 sed -i "s/#\?except-interface=.*/except-interface=${EthName}/" /etc/dnsmasq.conf
@@ -54,8 +54,8 @@ systemctl enable dnsmasq.service --now >>/dev/null 2>&1
 
 # ocserv
 rm -rf /etc/ocserv
-wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.xz "https://github.com/ixmu/openconnect-server-static/releases/download/v${OCSERV_VERSION}/openconnect-server-linux-${Arch}.tar.xz"
-tar --overwrite -xvf /tmp/ocserv_bin.tar.xz -C /usr/local/
+wget --no-check-certificate -4 -qO /tmp/ocserv_bin.tar.gz "https://raw.githubusercontent.com/ixmu/Note/refs/heads/master/Ocserv/build/ocserv_${Arch}_v${OCSERV_VERSION}.tar.gz"
+tar --overwrite -xvf /tmp/ocserv_bin.tar.gz -C /usr/local/
 wget --no-check-certificate -4 -qO /tmp/ocserv_config.tar.gz "https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv_config.tar.gz"
 tar --overwrite -xvf /tmp/ocserv_config.tar.gz -C /
 curl -o /etc/systemd/system/ocserv.service https://raw.githubusercontent.com/ixmu/Note/master/Ocserv/build/ocserv.service
