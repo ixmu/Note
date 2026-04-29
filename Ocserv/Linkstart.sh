@@ -25,6 +25,7 @@ check_nat_rule() {
     if ! iptables -t nat -C POSTROUTING -s "$nat_subnet" -o "$nat_interface" -j MASQUERADE >/dev/null 2>&1; then
         echo "NAT规则不存在，添加规则..."
         iptables -t nat -A POSTROUTING -s "$nat_subnet" -o "$nat_interface" -j MASQUERADE
+        iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
         echo "NAT规则已添加"
     fi
 }
