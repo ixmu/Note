@@ -1,12 +1,15 @@
 [Unit]
-Description=GO Simple Tunnel
-After=network.target
-Wants=network.target
+Description=gost
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/gost -C /etc/gost/config.yaml
+User=root
 Restart=always
+RestartSec=5
+DynamicUser=true
+ExecStart=/usr/bin/gost -C /etc/gost/config.json
 
 [Install]
 WantedBy=multi-user.target
