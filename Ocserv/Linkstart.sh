@@ -33,7 +33,7 @@ check_nat_rule() {
 # 运行OpenConnect连接命令
 connect() {
     echo "连接到OpenConnect服务器..."
-    echo "$password" | openconnect -b "$server" --user="$username" --passwd-on-stdin
+    echo "$password" | openconnect -b "$server" --user="$username" --passwd-on-stdin --reconnect-timeout=30
     if [ $? -eq 0 ]; then
         echo "连接成功"
     else
