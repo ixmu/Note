@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-# 基础设置
+# ==========================================
+# 自动化备份脚本 - 支持本地/OSS/COS
+# ==========================================
+
 set -e
 DATE_TODAY=$(date +"%Y-%m-%d")
 DATE_OLD=$(date -d -15day +"%Y-%m-%d")
@@ -16,78 +19,63 @@ Backup_Database=("database1" "database2")
 
 MYSQL_Host='localhost'
 MYSQL_UserName='root'
-MYSQL_PassWord='password'
+MYSQL_PassWord='your_password'
 
-Enable_FTP=1  # 0: enable; 1: disable
-FTP_Host='1.2.3.4'; FTP_Username='user'; FTP_Password='pass'; FTP_Dir="backup"
-
+# 阿里云 OSS 配置
 Enable_ossutil=1 # 0: enable; 1: disable
 Ossutil_Bin='/usr/sbin/ossutil'
-Ossutil_config_dir='/root/.ossutilconfig' # 建议使用完整绝对路径
-Ossutil_name='your_bucket_name'
-oss_endpoint='oss-cn-hangzhou.aliyuncs.com'
-oss_accessKeyID='your_id'
-oss_accessKeySecret='your_secret'
+Ossutil_config='/root/.ossutilconfig'
+Oss_Bucket='oss://your-bucket-name'
 
-# --- 核心函数 ---
+# 腾讯云 COS 配置
+Enable_cos=1 # 0: enable; 1: disable
+Cos_Bucket='your-bucket-name' # coscmd 默认从配置文件读取
+
+# --- 函数区 ---
 Backup_Website() {
     local dir_path=$1
     local dir_name=$(basename "$dir_path")
     local pre_dir=$(dirname "$dir_path")
-    echo "Backing up website: $dir_name"
+    echo "正在备份网站: $dir_name"
     tar zcf "${Backup_Home}/web-${dir_name}.tar.gz" -C "$pre_dir" "$dir_name"
 }
 
 Backup_Sql() {
     local db_name=$1
-    echo "Backing up database: $db_name"
+    echo "正在备份数据库: $db_name"
     ${MySQL_Dump} -h"$MYSQL_Host" -u"$MYSQL_UserName" -p"$MYSQL_PassWord" "$db_name" > "${Backup_Home}/db-${db_name}.sql"
 }
 
 # --- 执行流程 ---
-# 检查环境
-[[ -f ${MySQL_Dump} ]] || { echo "mysqldump not found"; exit 1; }
+# 1. 环境准备
+[[ -f ${MySQL_Dump} ]] || { echo "错误: mysqldump 未找到"; exit 1; }
 mkdir -p "${Backup_Home}"
 
-# 执行备份
+# 2. 开始备份
 for dd in "${Backup_domain[@]}"; do Backup_Website "${Backup_Dir}/${dd}"; done
 for db in "${Backup_Database[@]}"; do Backup_Sql "${db}"; done
 
-# 清理本地过期数据
+# 3. 本地过期清理
 if [[ -d "${Old_Backup_Home}" ]]; then
-    echo "Deleting old local backup: ${Old_Backup_Home}"
     rm -rf "${Old_Backup_Home}"
 fi
 
-# FTP 上传
-if [[ ${Enable_FTP} -eq 0 ]]; then
-    echo "Uploading to FTP..."
-    lftp -u "${FTP_Username},${FTP_Password}" "${FTP_Host}" << EOF
-cd ${FTP_Dir}
-rm -rf ${DATE_OLD}
-mkdir ${DATE_TODAY}
-cd ${DATE_TODAY}
-mput ${Backup_Home}/*
-bye
-EOF
-fi
-
-# OSS 上传
+# 4. 异地上传逻辑
+# 阿里云 OSS
 if [[ ${Enable_ossutil} -eq 0 ]]; then
-    echo "Uploading to Aliyun OSS..."
-    # 确保配置文件存在
-    if [[ ! -f "${Ossutil_config_dir}" ]]; then
-        cat > "${Ossutil_config_dir}" << EOF
-[Credentials]
-language=CH
-endpoint=${oss_endpoint}
-accessKeyID=${oss_accessKeyID}
-accessKeySecret=${oss_accessKeySecret}
-EOF
-    fi
-    
-    ${Ossutil_Bin} --config-file "${Ossutil_config_dir}" cp -r "${Backup_Home}/" "oss://${Ossutil_name}/${DATE_TODAY}/"
-    ${Ossutil_Bin} --config-file "${Ossutil_config_dir}" rm -rf "oss://${Ossutil_name}/${DATE_OLD}/"
+    echo "正在上传到阿里云 OSS..."
+    ${Ossutil_Bin} --config-file "${Ossutil_config}" cp -r "${Backup_Home}/" "${Oss_Bucket}/${DATE_TODAY}/"
+    ${Ossutil_Bin} --config-file "${Ossutil_config}" rm -rf "${Oss_Bucket}/${DATE_OLD}/"
 fi
 
-echo "All tasks completed successfully."
+# 腾讯云 COS
+if [[ ${Enable_cos} -eq 0 ]]; then
+    echo "正在上传到腾讯云 COS..."
+    # 使用 coscmd，需提前完成 coscmd config 配置
+    coscmd upload -r "${Backup_Home}/" "${DATE_TODAY}/"
+    coscmd delete -r "${DATE_OLD}/"
+fi
+
+echo "=========================================="
+echo "备份任务于 $(date) 全部完成"
+echo "=========================================="
