@@ -1,106 +1,93 @@
 #!/usr/bin/env bash
 
-Backup_Home="/home/backup/$(date +"%Y-%m-%d")"
-Old_Backup_Home="/home/backup/$(date -d -15day +"%Y-%m-%d")"
+# 基础设置
+set -e
+DATE_TODAY=$(date +"%Y-%m-%d")
+DATE_OLD=$(date -d -15day +"%Y-%m-%d")
+BACKUP_ROOT="/home/backup"
+Backup_Home="${BACKUP_ROOT}/${DATE_TODAY}"
+Old_Backup_Home="${BACKUP_ROOT}/${DATE_OLD}"
 
+# --- 配置区 ---
 MySQL_Dump="/usr/bin/mysqldump"
-######~Set Directory you want to backup~######
 Backup_Dir="/home/wwwroot"
-Backup_domain=("domain1 "domain2")
-
-######~Set MySQL Database you want to backup~######
+Backup_domain=("domain1" "domain2")
 Backup_Database=("database1" "database2")
 
-######~Set MySQL UserName and password~######
-MYSQL_Host='Mysql server address'
-MYSQL_UserName='mysql username'
-MYSQL_PassWord='mysql password'
+MYSQL_Host='localhost'
+MYSQL_UserName='root'
+MYSQL_PassWord='password'
 
-######~Enable Ftp Backup~######
-Enable_FTP=1
-# 0: enable; 1: disable
-######~Set FTP Information~######
-FTP_Host='1.2.3.4'
-FTP_Username='vpser.net'
-FTP_Password='yourftppassword'
-FTP_Dir="backup"
+Enable_FTP=1  # 0: enable; 1: disable
+FTP_Host='1.2.3.4'; FTP_Username='user'; FTP_Password='pass'; FTP_Dir="backup"
 
-######~Enable ossutil Backup~######
+Enable_ossutil=1 # 0: enable; 1: disable
 Ossutil_Bin='/usr/sbin/ossutil'
-Ossutil_config_dir='/path_to/'
-Ossutil_name='oss_name'
-oss_endpoint='oss_endpoint'
-oss_accessKeyID='accessKeyID'
-oss_accessKeySecret='accessKeySecret'
-Enable_ossutil=1
-# 0: enable; 1: disable
+Ossutil_config_dir='/root/.ossutilconfig' # 建议使用完整绝对路径
+Ossutil_name='your_bucket_name'
+oss_endpoint='oss-cn-hangzhou.aliyuncs.com'
+oss_accessKeyID='your_id'
+oss_accessKeySecret='your_secret'
 
-#Values Setting END!
-
-TodayWWWBackup=web-*.tar.gz
-TodayDBBackup=db-*.sql
-OldWWWBackup=web-*.tar.gz
-OldDBBackup=db-*.sql
-
-Backup_Website()
-{
-    Backup_Path=$1
-    Dir_Name=`echo ${Backup_Path##*/}`
-    Pre_Dir=`echo ${Backup_Path}|sed 's/'${Dir_Name}'//g'`
-    tar zcf ${Backup_Home}/web-${Dir_Name}.tar.gz -C ${Pre_Dir} ${Dir_Name}
-}
-Backup_Sql()
-{
-    ${MySQL_Dump} -h$MYSQL_Host -u$MYSQL_UserName -p$MYSQL_PassWord $1 > ${Backup_Home}/db-$1.sql
+# --- 核心函数 ---
+Backup_Website() {
+    local dir_path=$1
+    local dir_name=$(basename "$dir_path")
+    local pre_dir=$(dirname "$dir_path")
+    echo "Backing up website: $dir_name"
+    tar zcf "${Backup_Home}/web-${dir_name}.tar.gz" -C "$pre_dir" "$dir_name"
 }
 
-if [ ! -f ${MySQL_Dump} ]; then  
-    echo "mysqldump command not found.please check your setting."
-    exit 1
+Backup_Sql() {
+    local db_name=$1
+    echo "Backing up database: $db_name"
+    ${MySQL_Dump} -h"$MYSQL_Host" -u"$MYSQL_UserName" -p"$MYSQL_PassWord" "$db_name" > "${Backup_Home}/db-${db_name}.sql"
+}
+
+# --- 执行流程 ---
+# 检查环境
+[[ -f ${MySQL_Dump} ]] || { echo "mysqldump not found"; exit 1; }
+mkdir -p "${Backup_Home}"
+
+# 执行备份
+for dd in "${Backup_domain[@]}"; do Backup_Website "${Backup_Dir}/${dd}"; done
+for db in "${Backup_Database[@]}"; do Backup_Sql "${db}"; done
+
+# 清理本地过期数据
+if [[ -d "${Old_Backup_Home}" ]]; then
+    echo "Deleting old local backup: ${Old_Backup_Home}"
+    rm -rf "${Old_Backup_Home}"
 fi
 
-if [ ! -d ${Backup_Home} ]; then  
-    mkdir -p ${Backup_Home}
-fi
-
-if [ ${Enable_FTP} = 0 ]; then
-    type lftp >/dev/null 2>&1 || { echo >&2 "lftp command not found. Install: centos:yum install lftp,debian/ubuntu:apt-get install lftp."; }
-fi
-
-echo "Backup website files..."
-for dd in ${Backup_domain[@]};do
-    Backup_Website ${Backup_Dir}/${dd}
-done
-
-echo "Backup Databases..."
-for db in ${Backup_Database[@]};do
-    Backup_Sql ${db}
-done
-
-echo "Delete old backup files..."
-rm -f ${Old_Backup_Home}
-
-if [ ${Enable_FTP} = 0 ]; then
-    echo "Uploading backup files to ftp..."
-    cd ${Backup_Home}
-    lftp ${FTP_Host} -u ${FTP_Username},${FTP_Password} << EOF
+# FTP 上传
+if [[ ${Enable_FTP} -eq 0 ]]; then
+    echo "Uploading to FTP..."
+    lftp -u "${FTP_Username},${FTP_Password}" "${FTP_Host}" << EOF
 cd ${FTP_Dir}
-mrm ${OldWWWBackup}
-mrm ${OldDBBackup}
-mput ${TodayWWWBackup}
-mput ${TodayDBBackup}
+rm -rf ${DATE_OLD}
+mkdir ${DATE_TODAY}
+cd ${DATE_TODAY}
+mput ${Backup_Home}/*
 bye
 EOF
-echo "complete."
 fi
 
-if [ ${Enable_ossutil} = 0 ]; then
-    if [ ! -f "${Ossutil_config_dir=}/ossutil.config" ];then
-      echo "初始化配置"
-      echo -e "[Credentials]\nlanguage=CH\nendpoint=${oss_endpoint}\naccessKeyID=${oss_accessKeyID}\naccessKeySecret=${oss_accessKeySecret}"> ${Ossutil_config}/ossutil.config
+# OSS 上传
+if [[ ${Enable_ossutil} -eq 0 ]]; then
+    echo "Uploading to Aliyun OSS..."
+    # 确保配置文件存在
+    if [[ ! -f "${Ossutil_config_dir}" ]]; then
+        cat > "${Ossutil_config_dir}" << EOF
+[Credentials]
+language=CH
+endpoint=${oss_endpoint}
+accessKeyID=${oss_accessKeyID}
+accessKeySecret=${oss_accessKeySecret}
+EOF
     fi
-    echo "Uploading backup files to AliyunOSS..."
-    ${Ossutil_Bin} --config-file ${Ossutil_config_dir=}/ossutil.config cp -r ${Backup_Home}/ oss://${Ossutil_name}/$(date +"%Y-%m-%d")/
-    ${Ossutil_Bin} --config-file ${Ossutil_config_dir=}/ossutil.config rm -rf oss://${Ossutil_name}/$(date -d -15day +"%Y-%m-%d")
-    echo "complete."
+    
+    ${Ossutil_Bin} --config-file "${Ossutil_config_dir}" cp -r "${Backup_Home}/" "oss://${Ossutil_name}/${DATE_TODAY}/"
+    ${Ossutil_Bin} --config-file "${Ossutil_config_dir}" rm -rf "oss://${Ossutil_name}/${DATE_OLD}/"
 fi
+
+echo "All tasks completed successfully."
