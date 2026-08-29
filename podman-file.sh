@@ -1,0 +1,2 @@
+podman run -d   --cap-add=NET_ADMIN   --cap-add=NET_RAW   --label io.containers.autoupdate=registry -e XUI_ENABLE_FAIL2BAN=true   -v /opt/x-ui/db/:/etc/x-ui/   -v /opt/x-ui/cert/:/root/cert/   --network=host   --restart=unless-stopped   --name 3x-ui   ghcr.io/mhsanaei/3x-ui:latest
+podman run --label io.containers.autoupdate=registry -e TCP=10443 --name ocserv --privileged --restart always -v /opt/ocserv:/etc/ocserv -d -p 10443:10443 docker.io/ocserv/ocserv
