@@ -24,10 +24,13 @@
     :set desiredDisabled false
 }
 
+:local changed false
+
 :local ipv4Rules [/ip firewall nat find where comment=$ruleComment]
 :foreach ruleId in=$ipv4Rules do={
     :if ([/ip firewall nat get $ruleId disabled] != $desiredDisabled) do={
         /ip firewall nat set $ruleId disabled=$desiredDisabled
+        :set changed true
     }
 }
 
@@ -35,13 +38,16 @@
 :foreach ruleId in=$ipv6Rules do={
     :if ([/ipv6 firewall nat get $ruleId disabled] != $desiredDisabled) do={
         /ipv6 firewall nat set $ruleId disabled=$desiredDisabled
+        :set changed true
     }
 }
 
-:if ($dnsAvailable) do={
-    :log info ("remote dns dst: DNS " . $dnsServer . " is available, matching NAT rules enabled")
-} else={
-    :log warning ("remote dns dst: DNS " . $dnsServer . " is unavailable, matching NAT rules disabled")
+:if ($changed) do={
+    :if ($dnsAvailable) do={
+        :log info ("remote dns dst: DNS " . $dnsServer . " is available, matching NAT rules enabled")
+    } else={
+        :log warning ("remote dns dst: DNS " . $dnsServer . " is unavailable, matching NAT rules disabled")
+    }
 }
 
 # Example deployment commands:

@@ -1,12 +1,12 @@
 # RouterOS configuration backup by e-mail
 
 :local logPrefix "[Backup-Mail]"
-:local smtpServer "smtp.139.com"
-:local smtpPort 465
-:local recipient "gzixmu@edu.cn"
-:local sender "adminis@139.com"
-:local password "5ae998"
-:local baseName "config"
+:local smtpServer "<SMTP Server>"
+:local smtpPort <SMTP Port>
+:local recipient "<Recipient Email>"
+:local sender "<Sender Email>"
+:local password "<Sender Email Password>"
+:local baseName "<File Name Prefix>"
 
 :local routerName [/system identity get name]
 :local rosVersion [/system resource get version]
