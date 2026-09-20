@@ -1,40 +1,39 @@
-# SMTP服务器
-:local SMTPServer "smtp.139.com"
-# SMTP端口
-:local SMTPPort "465"
-# 收件邮箱
-:local SendEmailTo "gzixmu@edu.cn"
-# 发件邮箱
-:local Sender "adminis@139.com"
-# 发件邮箱密码
-:local pwd "5ae998"
-#邮件主题
-:local Themes "RouteOS-Backup-"
-# SMTP解析ip
-:local SMTPIP [:resolve $SMTPServer]
-# 配置邮件服务
-/tool e-mail set server=$SMTPIP port=$SMTPPort tls=yes from=$Sender user=$Sender password=$pwd
-# 获取系统日期
+# RouterOS configuration backup by e-mail
+
+:local logPrefix "[Backup-Mail]"
+:local smtpServer "smtp.139.com"
+:local smtpPort 465
+:local recipient "gzixmu@edu.cn"
+:local sender "adminis@139.com"
+:local password "5ae998"
+:local baseName "config"
+
+:local routerName [/system identity get name]
+:local rosVersion [/system resource get version]
 :local date [/system clock get date]
-#获取系统时间
 :local time [/system clock get time]
-#获取系统版本信息
-:local ROSVersion [/system resource get version]
-# 获取主机名
-:local RouterName [/system identity get name]
-# 导出配置文件
-/export file="config.rsc"
-# 导出备份文件
-/system backup save dont-encrypt=yes name="config"
-#暂停收敛
-:delay 2s
-# 发送邮件
-/tool e-mail send to=$SendEmailTo tls=yes from=$Sender subject=("RouteOS 备份") body=("设备名称: ".$RouterName."\n版本信息: ".$ROSVersion."\n备份时间".$date."-".$time) file=("config.rsc","config.backup")
-# 暂停收敛
-:delay 2s
-# 移除配置文件
-/file remove "config.rsc"
-# 暂停收敛
-:delay 2s
-#移除备份文件
-/file remove "config.backup"
+
+:log info ($logPrefix . " START | device=" . $routerName)
+
+:do {
+    :local smtpIp [:resolve $smtpServer]
+    /tool e-mail set server=$smtpIp port=$smtpPort tls=yes from=$sender user=$sender password=$password
+
+    /export file=($baseName . ".rsc")
+    /system backup save dont-encrypt=yes name=$baseName
+    :delay 2s
+
+    /tool e-mail send to=$recipient tls=yes from=$sender \
+        subject=("RouterOS backup - " . $routerName) \
+        body=("Device: " . $routerName . "\nVersion: " . $rosVersion . "\nBackup time: " . $date . " " . $time) \
+        file=(($baseName . ".rsc"), ($baseName . ".backup"))
+
+    :log info ($logPrefix . " SUCCESS | recipient=" . $recipient)
+} on-error={
+    :log error ($logPrefix . " FAILED | Check DNS, SMTP, and e-mail settings")
+}
+
+:foreach fileName in={($baseName . ".rsc"); ($baseName . ".backup")} do={
+    :local fileId [/file find where name=$fileName]
+    :if ([:len $fileId] > 0) do={ /file remove $fileId }
+}
