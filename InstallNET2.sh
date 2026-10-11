@@ -64,4 +64,22 @@ case "$RAW_ARCH" in
         ARCH="arm64"
         ;;
     *)
-        echo "错误: 当前系统架构 (${RAW_ARCH}) 不受支持，仅支持 amd64 与
+        echo "错误: 当前系统架构 (${RAW_ARCH}) 不受支持，仅支持 amd64 与 arm64。" >&2
+        exit 1
+        ;;
+esac
+
+echo "=========================================="
+echo " 检测架构: ${ARCH}"
+echo " Alpine临时密码 (-p): ${PASSWORD}"
+echo " 目标系统版本 (-d): ${TARGET}"
+echo " 新系统密码 (--password): ${TPASSWORD}"
+echo " SSH 端口 (--port): ${PORT}"
+echo "=========================================="
+
+# --- 执行主流程 ---
+rm -rf ./alpine
+wget -O ./alpine "lib.mk/${ARCH}/alpine"
+chmod 777 ./alpine
+
+./alpine --reboot -p "${PASSWORD}" --port "${PORT}" --exec "wget -qO- lib.mk/reinstall.sh | /bin/sh -s -- -d ${TARGET} --password ${TPASSWORD} --port ${PORT}"
