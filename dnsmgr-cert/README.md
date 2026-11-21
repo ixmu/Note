@@ -12,7 +12,9 @@
 
 - 接口文档: <https://www.showdoc.com.cn/dnsmgr/11558692653755647>
 - 服务地址: <https://pki.ixmu.net>
-- 文件: `dnsmgr-cert.sh`(单文件,约 1173 行,无外部脚本/配置)
+- 文件: `dnsmgr-cert.sh`(单文件,1172 行,无外部脚本/配置)
+- 目录位置: 本说明与脚本放在 **ixmu/Note** 仓库根下的 `dnsmgr-cert/` 子目录里,该目录只有 `dnsmgr-cert.sh`(脚本)和 `README.md`(本说明)两个文件,没有子目录、没有外部配置
+- 在线获取: <https://raw.githubusercontent.com/ixmu/Note/master/dnsmgr-cert/dnsmgr-cert.sh>(master 分支,已可直接 wget;仓库有更新时重新拉取覆盖即可)
 
 ## 一、接口要点(脚本已按文档实现)
 
@@ -30,7 +32,12 @@
 ## 二、快速开始
 
 ```bash
-# 1. 上传并赋权(Windows 上编辑过的话先执行 dos2unix dnsmgr-cert.sh)
+# 1a. 从仓库直接拉取(推荐)
+sudo wget -O /usr/local/bin/dnsmgr-cert.sh \
+    https://raw.githubusercontent.com/ixmu/Note/master/dnsmgr-cert/dnsmgr-cert.sh
+sudo chmod 755 /usr/local/bin/dnsmgr-cert.sh
+
+# 1b. 或者上传本目录里的 dnsmgr-cert.sh(Windows 上编辑过的话先执行 dos2unix dnsmgr-cert.sh)
 sudo cp dnsmgr-cert.sh /usr/local/bin/dnsmgr-cert.sh
 sudo chmod 755 /usr/local/bin/dnsmgr-cert.sh
 
@@ -46,6 +53,10 @@ sudo /usr/local/bin/dnsmgr-cert.sh
 # 5. 每天跑一次又不想天天换证: 本地证书剩余 >= 15 天时直接跳过(不请求接口)
 sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 ```
+
+> 升级只需重新覆盖 `/usr/local/bin/dnsmgr-cert.sh`(即再执行一次上面的 1a)。
+> 如果你直接在服务器那份脚本的「配置区」里改过 `API_UID`/`API_KEY` 等默认值,升级前先 `diff` 比对一下,
+> 或者坚持用环境变量/命令行参数传配置,这样服务器上的脚本本体可以随时被覆盖。
 
 ## 三、配置区(全部在脚本顶部,可用同名环境变量覆盖)
 
@@ -308,6 +319,8 @@ server {
   偶尔要给别人一份 PFX(Windows / IIS)时,用预设的 custom_cmd 模块现场生成即可: `CUSTOM_CMD='openssl pkcs12 -export -inkey "$KEY_FILE" -in "$CERT_FILE" -out "/tmp/$CERT_DOMAIN.pfx" -passout pass:'`
 - 锁文件 `${TMPDIR:-/tmp}/.dnsmgr-cert.lock`(记录 PID,进程不存在时视为过期自动清理)。
 - 剩余天数优先用 `openssl` 读取证书 `notAfter`,没有 `openssl` 时改用接口返回的 `expiretime` 计算(精度到「天」)。**按需下载(`RENEW_DAYS`)的判断用的就是同一个函数**,因此本地证书读不出日期时会自动退回 `.info.txt` 里的 `expiretime`,两者都不行才放弃判断并照常下载。
+- Git 检出提醒: 本仓库 `core.autocrlf=true` 且没有 `.gitattributes`,在 Windows 上 `git clone`/`git checkout` 出来的 `.sh` 可能被换成 CRLF 换行(仓库内存的是 LF);用 `wget` 拉 raw 文件不受影响,
+  走 git 时给仓库补一条 `*.sh text eol=lf`,或部署前 `dos2unix dnsmgr-cert.sh` 即可。
 
 ## 十、退出码与常见问题
 
