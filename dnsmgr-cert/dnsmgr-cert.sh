@@ -48,6 +48,32 @@
 #   5) ./dnsmgr-cert.sh            # 正式下载
 #      每天跑一次建议加 -r 15: 本地证书剩余 >= 15 天时不再重复下载(见配置区 RENEW_DAYS)
 #   6) crontab -e 添加: 30 3 * * * /usr/local/bin/dnsmgr-cert.sh
+#      30 3 * * * /usr/local/bin/dnsmgr-cert.sh -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+#
+# 服务器部署与定时任务(cron):
+#   部署: 本文件放到 /usr/local/bin/dnsmgr-cert.sh 并 chmod 755
+#         (Windows 上编辑过先执行 dos2unix); 先手动 check 自检一次再挂 cron;
+#         证书目录 OUT_DIR 不存在时脚本自己 mkdir -p(权限跟随 umask,一般 755),
+#         证书 644 / 私钥 600,用 root 跑最省事;想让普通用户跑就把 OUT_DIR 指到该用户可写目录。
+#   crontab -e(脚本自带锁文件,上一轮没跑完时本轮直接跳过,不需要额外 flock):
+#         30 3 * * * /usr/local/bin/dnsmgr-cert.sh -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+#   /etc/cron.d/dnsmgr-cert 的写法多一个"用户"字段(适合 root 统一部署,卸载时直接删文件):
+#         30 3 * * * root /usr/local/bin/dnsmgr-cert.sh -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+#   cron 环境要点(踩坑基本都在这里):
+#     - 脚本与命令一律绝对路径(含 CUSTOM_CMD / RELOAD_CMD 里的可执行文件);
+#     - cron 默认 PATH=/usr/bin:/bin,需要时在 crontab 顶部加一行 PATH=/usr/local/bin:/usr/bin:/bin;
+#     - cron 不启动登录 shell,不读 /etc/profile 和 ~/.bashrc,在那里 export 的 API_UID/API_KEY
+#       不生效: 要覆盖配置区就在 cron 行里内联传(API_KEY=xxxx /usr/local/bin/dnsmgr-cert.sh -r 15),
+#       或直接改本文件"配置区"默认值(systemd 服务可用 EnvironmentFile 传);
+#     - cron 把百分号当特殊字符,命令里的百分号(如 date +%F)必须转义,否则该行之后的内容会被截断;
+#     - cron 的 HOME 可能为空,自定义命令里不要用 ~ 开头的路径;
+#     - 触发时间按系统本地时区(与 date 一致),服务器是 UTC 又想按北京时间跑就先核对 timedatectl;
+#     - MAILTO 留空则 cron 不发信;只想收到异常就在 cron 里配 MAILTO 并给脚本加 -q(只输出 WARN/ERROR);
+#     - 接口有频控时把固定分钟换成范围/步进(如 23-59/7 3 * * *)来错开时间。
+#   日志: 默认追加写 LOG_FILE=/var/log/dnsmgr-cert.log,建议配 logrotate(见 README);
+#         把 LOG_FILE 置空则只输出到标准输出,完全交给 cron 重定向或 systemd journal。
+#   换证后的服务重载交给内置 reload 模块(RELOAD_CMD)或 user 模块 final 钩子,
+#   不要再往 crontab 里单加一条 systemctl reload,否则证书没更新时也会白白重载。
 #=====================================================================
 
 #=====================================================================
@@ -245,6 +271,16 @@ $PROG v$VERSION -- dnsmgr SSL 证书自动下载(单文件 / 模块化版)
       API_BASE API_UID API_KEY CERT_IDS OUT_DIR WARN_DAYS RENEW_DAYS FORCE_DOWNLOAD HTTP_TIMEOUT
       HTTP_RETRIES CURL_INSECURE LOG_FILE MODULES USER_MODULE
       CUSTOM_CMD CUSTOM_CMD_ON_CHANGE_ONLY CUSTOM_CMD_SHELL RELOAD_CMD NOTIFY_CMD
+
+定时任务(服务器部署):
+  放到 /usr/local/bin 并 chmod 755,先手动 check 自检,再 crontab -e 挂上(锁文件已防并发):
+    30 3 * * * /usr/local/bin/$PROG -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+  /etc/cron.d 写法多一个用户字段:
+    30 3 * * * root /usr/local/bin/$PROG -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+  要点: 一律绝对路径; cron 默认 PATH 只有 /usr/bin:/bin,需要时在 crontab 顶部加 PATH=;
+        cron 不读 profile/bashrc,覆盖配置请在 cron 行里内联传变量或直接改配置区;
+        cron 里的百分号是特殊字符,命令中如 date +%F 必须转义; HOME 可能为空,别用 ~ 路径;
+        按系统本地时区触发; MAILTO 留空不发信,只想收告警就加 -q; 详见本脚本头部注释与 README
 
 示例:
   ./$PROG modules

@@ -12,7 +12,7 @@
 
 - 接口文档: <https://www.showdoc.com.cn/dnsmgr/11558692653755647>
 - 服务地址: <https://pki.ixmu.net>
-- 文件: `dnsmgr-cert.sh`(单文件,1172 行,无外部脚本/配置)
+- 文件: `dnsmgr-cert.sh`(单文件,1208 行,无外部脚本/配置;头部注释含部署与 cron 要点)
 - 目录位置: 本说明与脚本放在 **ixmu/Note** 仓库根下的 `dnsmgr-cert/` 子目录里,该目录只有 `dnsmgr-cert.sh`(脚本)和 `README.md`(本说明)两个文件,没有子目录、没有外部配置
 - 在线获取: <https://raw.githubusercontent.com/ixmu/Note/master/dnsmgr-cert/dnsmgr-cert.sh>(master 分支,已可直接 wget;仓库有更新时重新拉取覆盖即可)
 
@@ -281,22 +281,133 @@ module_user_final() {
 | `-q, --quiet` | 只输出 WARN/ERROR |
 | `-h, --help` / `-v, --version` | 帮助 / 版本 |
 
-## 七、定时任务
+## 七、放到服务器上跑定时任务
+
+### 1) 部署五步(约 5 分钟)
+
+```bash
+# 1. 取脚本(也可以直接上传本目录里的 dnsmgr-cert.sh;Windows 上编辑过先执行 dos2unix)
+sudo wget -O /usr/local/bin/dnsmgr-cert.sh https://raw.githubusercontent.com/ixmu/Note/master/dnsmgr-cert/dnsmgr-cert.sh
+sudo chmod 755 /usr/local/bin/dnsmgr-cert.sh
+
+# 2. 只改顶部「配置区」: API_UID / API_KEY / CERT_IDS / OUT_DIR,以及需要的 CUSTOM_CMD / RELOAD_CMD
+sudo vi /usr/local/bin/dnsmgr-cert.sh
+
+# 3. 确认依赖(必需 bash / curl / awk / md5sum;强烈建议装 openssl)
+command -v curl md5sum openssl
+
+# 4. 自检 + 手动跑一遍: 第一次别加 -r,让它真的下载并校验一次
+sudo /usr/local/bin/dnsmgr-cert.sh check
+sudo /usr/local/bin/dnsmgr-cert.sh
+ls -l /etc/ssl/dnsmgr/                        # 域名.crt.pem / 域名.key.pem / 域名.info.txt
+sudo /usr/local/bin/dnsmgr-cert.sh modules    # 确认模块与阶段符合预期
+
+# 5. 挂上定时任务(写法见下面两小节),挂完 crontab -l 复核
+sudo crontab -e
+```
+
+- 证书目录 `OUT_DIR` 不存在时脚本会自己 `mkdir -p`(权限跟随 umask,一般 755);私钥固定 `600`、证书 `644`,
+  所以**用 root 跑最省事**;想让普通用户跑,就把 `OUT_DIR` 和 `LOG_FILE` 都指到该用户可写的位置。
+- 脚本自带锁文件 `${TMPDIR:-/tmp}/.dnsmgr-cert.lock`,上一轮没跑完时本轮直接提示「已有实例正在运行」并退出,
+  **不需要再套 `flock`**。
+- 换证后的服务重载交给内置 `reload` 模块或 `user` 模块的 `final` 钩子;别再往 crontab 里单加一条
+  `systemctl reload nginx`,否则证书没更新时也会白白重载一次。
+- 脚本头部注释里(前 80 行)也写了一份等价的部署与 cron 要点,服务器上没网络也能查:`head -80 dnsmgr-cert.sh`。
+
+### 2) crontab 写法
 
 ```cron
-# 每天 03:30 下载证书(脚本自带锁文件,不会并发重复执行)
+# 每天 03:30 下载证书(不带 -r = 每次都下载并校验)
 30 3 * * * /usr/local/bin/dnsmgr-cert.sh
 
-# 推荐: 每天 03:30 检查一次,但本地证书剩余还不低于 15 天就不请求接口(省调用,也不反复刷文件)
-30 3 * * * /usr/local/bin/dnsmgr-cert.sh -r 15
+# 推荐: 每天检查一次,但本地证书剩余还不低于 15 天就不请求接口(省调用,也不反复刷文件)
+30 3 * * * /usr/local/bin/dnsmgr-cert.sh -r 15 >> /var/log/dnsmgr-cert.log 2>&1
 
 # 只想让 cron 邮件收到告警: 过滤 WARN/ERROR
 30 3 * * * /usr/local/bin/dnsmgr-cert.sh 2>&1 | grep -E 'WARN|ERROR' | mail -s 'dnsmgr 证书任务' admin@example.com
 
-# 不改脚本、纯命令行的一次性用法
+# 不改脚本、纯命令行的一次性用法(临时换订单或换密钥跑一次)
 API_UID=1 API_KEY=xxxx /usr/local/bin/dnsmgr-cert.sh -i 27 -m custom_cmd \
     --cmd 'systemctl reload nginx'
 ```
+
+不想用 `crontab -e` 也可以丢一个文件进 `/etc/cron.d/`(比用户 crontab 多一个「用户」字段,适合 root 统一部署,卸载时直接删文件):
+
+```cron
+# /etc/cron.d/dnsmgr-cert  (权限 644,文件末尾必须留一个空行)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=admin@example.com
+30 3 * * * root /usr/local/bin/dnsmgr-cert.sh -r 15 >> /var/log/dnsmgr-cert.log 2>&1
+```
+
+### 3) cron 环境注意事项(踩坑清单)
+
+| 事项 | 说明 |
+| --- | --- |
+| 绝对路径 | 脚本本身、`CUSTOM_CMD` / `RELOAD_CMD` 里的可执行文件一律写绝对路径 |
+| PATH | cron 默认 `PATH=/usr/bin:/bin`;自装的命令要么写全路径,要么在 crontab 顶部补一行 `PATH=...` |
+| 不读 profile | cron 不启动登录 shell,`/etc/profile` 与 `~/.bashrc` 里 export 的 `API_UID`/`API_KEY` 在这里不生效:改脚本「配置区」默认值,或在 cron 行里内联传变量 |
+| 百分号 | cron 把 `%` 当换行符,命令里的百分号(如 `date +%F`)必须转义,否则该行之后的内容会被吃掉 |
+| HOME | cron 的 `HOME` 可能为空,自定义命令里别用 `~/xxx` 这种路径,证书目录与日志一律绝对路径 |
+| 时区 | 按**系统本地时区**触发(`timedatectl` 查看);服务器是 UTC 又想按北京时间 03:30 跑,就换算成 19:30 UTC,或直接把时区设为 `Asia/Shanghai` |
+| 错峰 | 接口有频控时把固定分钟换成范围/步进,如 `23-59/7 3 * * *` |
+| 邮件 | `MAILTO` 留空则 cron 不发信;只想收异常就设 `MAILTO=admin@example.com` 并给脚本加 `-q`(只输出 WARN/ERROR) |
+| 日志 | `LOG_FILE` 默认追加写 `/var/log/dnsmgr-cert.log`,cron 里再重定向一次也无妨(锁冲突、依赖报错都能留下);轮转见第 5 小节 |
+| 首次上线 | 先手动跑一次 `check`、再不带 `-r` 跑一次,确认证书落盘和模块动作正常,之后再把 `-r 15` 交给 cron |
+
+### 4) 不想用 cron:改用 systemd timer
+
+```ini
+# /etc/systemd/system/dnsmgr-cert.service
+[Unit]
+Description=下载 dnsmgr SSL 证书
+
+[Service]
+Type=oneshot
+# 用环境变量覆盖配置区,密钥就不必写进脚本本体(等号前的 - 表示文件不存在也不算错)
+Environment=RENEW_DAYS=15
+EnvironmentFile=-/etc/dnsmgr-cert.env
+ExecStart=/usr/local/bin/dnsmgr-cert.sh
+
+# /etc/systemd/system/dnsmgr-cert.timer
+[Unit]
+Description=每天定时下载 dnsmgr SSL 证书
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now dnsmgr-cert.timer
+systemctl list-timers dnsmgr-cert.timer          # 看下次触发时间
+journalctl -u dnsmgr-cert.service -n 50          # 看上一次执行的输出
+```
+
+`/etc/dnsmgr-cert.env` 里每行直接写 `API_KEY=xxxx`(**不要**加 `export`)。这样密钥与脚本本体分离,升级时直接覆盖 `/usr/local/bin/dnsmgr-cert.sh` 即可。
+
+### 5) 日志轮转
+
+```
+# /etc/logrotate.d/dnsmgr-cert
+/var/log/dnsmgr-cert.log {
+    monthly
+    rotate 6
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0600 root root
+}
+```
+
+脚本是**追加**方式写日志,轮转之后不需要给它发信号;把 `LOG_FILE` 置空则完全不写文件,日志交给 cron 重定向或 systemd journal。
 
 ## 八、nginx 站点配置示例
 
@@ -342,4 +453,6 @@ server {
 | 续签后想立刻拿到新证书 | `dnsmgr-cert.sh -f` 强制下载并校验一次(等价于临时把阈值设为 0) |
 | 只想下载不做其它动作 | `USER_MODULE=0 ./dnsmgr-cert.sh -m ''`(内置模块与自定义模块都不跑) |
 | 泛域名证书文件名 | `*.ixnic.net` 保存为 `wild.ixnic.net.crt.pem`,与同目录下主域名订单的 `ixnic.net.crt.pem` 互不覆盖(`*` 不是 Windows 合法文件名字符,故用 `wild.` 前缀代替) |
+| 挂上 cron 后一声不响 | `crontab -l` 确认任务在;手动按 cron 的方式跑一次 `sudo crontab -l` 里那行原样命令;再核对 cron 的 `PATH`、`HOME` 和百分号转义(见「七」第 3 小节) |
+| cron 里自定义命令报错或日期错乱 | 多半是百分号没转义,或用了 `~` 开头的路径(cron 的 `HOME` 可能为空);改成全绝对路径并转义 `%` |
 | Windows 编辑后无法运行 | `dos2unix dnsmgr-cert.sh` 或 `sed -i 's/\r$//' dnsmgr-cert.sh` |
