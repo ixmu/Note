@@ -1,18 +1,17 @@
-# dnsmgr SSL 证书自动下载脚本(单文件 / 模块化 / 先校验后触发 / 按需下载 v2.9)
+# dnsmgr SSL 证书自动下载脚本(单文件 / 模块化 / 先校验后触发 / 按需下载 v3.0)
 
 一个自包含的 shell 脚本: 从 **聚合DNS管理系统(dnsmgr)** 开放接口自动下载 SSL 证书,**先校验再写盘**,平铺保存为
 `域名.crt.pem` / `域名.key.pem`,下载后的附加动作(部署、重载、告警、通知…)全部拆成**可插拔模块**,
-并预置一个 **custom_cmd 模块**用于「证书下载校验通过后执行自定义命令」。需要多行逻辑时,脚本里还专门划了一块
-**「自定义模块区」**(搜索标记 `BEGIN USER CODE`): 里面固定只有**一个**名为 `user` 的自定义模块,它的两个钩子
-(`post_download` / `final`)**都只在证书下载完成并通过校验之后才执行**,直接往函数体里填代码就生效,
-**不用改 `MODULES`,也不加载任何外部文件**。
-配置直接写在脚本顶部的「配置区」,**没有外部 .conf 文件**,复制一个文件即可部署,适合放进 crontab 长期运行。
+并预置一个 **custom_cmd 模块**用于「证书下载校验通过后执行自定义命令」。需要多行动作时,在脚本里另写一组
+`module_<模块名>_<阶段>()` 函数、把模块名加进 `MODULES` 即可;`post_download` / `on_change` / `final` 这三个
+**下载后**阶段都只在证书下载完成并通过校验之后才执行,模块里可以放心部署与重载。
+配置直接写在脚本顶部的「配置区」,**没有外部 .conf 文件,也不 source 外部脚本**,复制一个文件即可部署,适合放进 crontab 长期运行。
 支持**按需下载**: 设了 `RENEW_DAYS`(或命令行 `-r`)之后,脚本只看**本地已保存的那张证书**还能用多久,剩余天数不低于阈值
 就直接跳过该订单(不请求接口、不校验、不触发任何模块钩子);本地没有这张证书时必定下载。临时想强制换证用 `-f`。
 
 - 接口文档: <https://www.showdoc.com.cn/dnsmgr/11558692653755647>
-- 服务地址: <https://pki.ixmu.net>
-- 文件: `dnsmgr-cert.sh`(单文件,1208 行,无外部脚本/配置;头部注释含部署与 cron 要点)
+- 服务地址: <https://ssl.explame.com>(示例站点,实际填你自己的 dnsmgr 地址)
+- 文件: `dnsmgr-cert.sh`(单文件,1136 行,无外部脚本/配置;头部注释含部署与 cron 要点)
 - 目录位置: 本说明与脚本放在 **ixmu/Note** 仓库根下的 `dnsmgr-cert/` 子目录里,该目录只有 `dnsmgr-cert.sh`(脚本)和 `README.md`(本说明)两个文件,没有子目录、没有外部配置
 - 在线获取: <https://raw.githubusercontent.com/ixmu/Note/master/dnsmgr-cert/dnsmgr-cert.sh>(master 分支,已可直接 wget;仓库有更新时重新拉取覆盖即可)
 
@@ -65,7 +64,7 @@ sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `API_BASE` | `https://pki.ixmu.net` | 接口地址,结尾不带 `/` |
+| `API_BASE` | `https://ssl.explame.com` | 接口地址(示例站点,改成你自己的 dnsmgr 地址),结尾不带 `/` |
 | `API_UID` | `1` | 用户 ID(后台「用户管理」查看),必须纯数字 |
 | `API_KEY` | 占位中文 | **必填**,API 接口密钥;仍是占位值时脚本直接报错 |
 | `CERT_IDS` | `27` | SSL 证书订单 ID,多个用英文逗号分隔 |
@@ -78,7 +77,6 @@ sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 | `CURL_INSECURE` | `0` | 1=跳过 HTTPS 校验(仅自签测试环境) |
 | `LOG_FILE` | `/var/log/dnsmgr-cert.log` | 追加写入的日志;留空则只输出到 stdout |
 | `MODULES` | `custom_cmd reload` | **启用的内置模块列表(空格分隔,按书写顺序执行)** |
-| `USER_MODULE` | `1` | 1=执行脚本「自定义模块区」里的 `user` 模块(**仅在证书下载完成并通过校验后执行**);0=关闭(照常下载、校验、保存,只跳过你写的代码) |
 | `CUSTOM_CMD` | 空 | 模块 `custom_cmd`: 要执行的自定义命令 |
 | `CUSTOM_CMD_ON_CHANGE_ONLY` | `1` | 1=仅证书有更新时执行;0=每次下载后都执行 |
 | `CUSTOM_CMD_SHELL` | `bash` | 执行 `CUSTOM_CMD` / `RELOAD_CMD` / `NOTIFY_CMD` 的解释器 |
@@ -94,13 +92,13 @@ sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 
 ```
 /etc/ssl/dnsmgr/
-├── ixnic.net.crt.pem           # 证书(含证书链),权限 644
-├── ixnic.net.key.pem           # 私钥,权限 600
-├── ixnic.net.info.txt          # order_id / domains / issuetime / expiretime / 更新时间
-├── mail.ixnic.net.crt.pem      # 另一个订单的证书,同目录共存
-├── mail.ixnic.net.key.pem
-├── wild.ixnic.net.crt.pem      # 泛域名订单 *.ixnic.net(泛域名用 wild. 前缀,不会覆盖主域名文件)
-├── wild.ixnic.net.key.pem
+├── explame.com.crt.pem           # 证书(含证书链),权限 644
+├── explame.com.key.pem           # 私钥,权限 600
+├── explame.com.info.txt          # order_id / domains / issuetime / expiretime / 更新时间
+├── mail.explame.com.crt.pem      # 另一个订单的证书,同目录共存
+├── mail.explame.com.key.pem
+├── wild.explame.com.crt.pem      # 泛域名订单 *.explame.com(泛域名用 wild. 前缀,不会覆盖主域名文件)
+├── wild.explame.com.key.pem
 └── *.bak                       # 覆盖前的上一版本自动备份
 ```
 
@@ -138,7 +136,7 @@ sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 | 4 | 私钥与证书是否配成一对(两侧公钥的 SHA-256 指纹比对) | `openssl` | 同上;私钥类型取不出公钥时只 WARN 并跳过该项 |
 
 - 校验失败的完整行为: 打印 `证书校验失败: <原因>` 与 `订单 <ID> 证书校验未通过,本次不覆盖现有证书文件`;
-  现有 `.crt.pem` / `.key.pem` / `.bak` **一律保持原样**,`custom_cmd`、`on_change`、`user` 模块等下载后的动作
+  现有 `.crt.pem` / `.key.pem` / `.bak` **一律保持原样**,`custom_cmd`、`reload`、`on_change` 等下载后的动作
   **全部不执行**,该订单退出码为 1(其余订单继续处理)。
 - 只提示不算失败: 新证书的 `notAfter` 早于现存文件中的证书时输出 WARN,防止接口回传旧证书把新证书覆盖回去。
 - 未安装 `openssl` 时降级: 只做第 1 项 PEM 结构检查(WARN 说明其余三项已跳过),照样保存,不阻塞续期。
@@ -146,11 +144,11 @@ sudo /usr/local/bin/dnsmgr-cert.sh -r 15
 ## 五、模块化机制(核心设计)
 
 一个「模块」= 一组按约定命名的函数 **`module_<模块名>_<阶段>()`**;模块名可以含下划线(如 `custom_cmd`)。
-**内置模块**(custom_cmd / reload / notify)启不启用由配置区 `MODULES` 决定,列表顺序即执行顺序;
-**自定义模块只有一个,固定叫 `user`**,写在本脚本的「自定义模块区」里,默认始终执行(排在每个阶段最后),
-可用配置项 `USER_MODULE=0` 整体关闭。未启用的模块函数即使定义存在也不会被调用。
+脚本自带 `custom_cmd` / `reload` / `notify` 三个模块,启用哪些、按什么顺序执行完全由配置区 `MODULES` 决定;
+要加自己的动作,就在脚本里另写一组 `module_<模块名>_<阶段>()` 函数并把模块名加进 `MODULES`。
+未启用的模块函数即使定义存在也不会被调用。
 **`post_download` / `on_change` / `final` 一律在证书下载完成并通过校验之后才触发**,模块里可以放心部署文件、
-重载服务;这也正是 `user` 模块只准备了两个「下载后」钩子的原因(`init` / `pre_download` 发生在校验之前)。
+重载服务;`init` / `pre_download` 发生在校验之前,只适合参数检查与准备工作。
 
 | 阶段 | 触发时机 | 典型用途 |
 | --- | --- | --- |
@@ -218,44 +216,47 @@ NOTIFY_CMD='mail -s "dnsmgr证书到期提醒" admin@example.com'          # 告
 
 `./dnsmgr-cert.sh modules` 可随时查看模块清单、支持的阶段以及是否已启用。
 
-### 加自己的代码(脚本里的「自定义模块区」= 唯一的自定义模块 `user`)
+### 加自己的代码(自己写一个模块)
 
-搜索标记 `BEGIN USER CODE` 就能定位这块区域(位于内置模块之后、基础工具之前)。区外归脚本,区内完全归你。
-区里已写好**两个钩子**,它们**都只在证书下载完成并通过校验之后**才被调用,填代码即可:
+不 source 外部文件,也没有专门的「自定义模块区」: 在脚本里(建议紧跟着内置模块写)另写一组 `module_<模块名>_<阶段>()`
+函数,再把模块名加进配置区 `MODULES`(或命令行 `-m`),它就和内置模块一样被调度;阶段不必写全,缺的阶段自动跳过。
 
 ```bash
-#---------- 自定义代码从这里开始 ----------
+# 例: 换证后把证书推到另外两台机器,最后统一重载 nginx
+MODULES="custom_cmd reload push"      # 在配置区的模块列表里追加自己的模块名
+SYNC_HOSTS="10.0.0.8 10.0.0.9"
 
-# 钩子1 每张证书下载、校验通过并保存之后(每个订单各一次)
-module_user_post_download() {
+module_push_init() {   # 启动时自检本模块参数(可选)
+    [ -n "$SYNC_HOSTS" ] || { warn "未配置 SYNC_HOSTS,push 不分发"; return 0; }
+}
+
+# 每张证书下载、校验通过并保存之后各一次
+module_push_post_download() {
     [ "$CERT_CHANGED" = "1" ] || return 0        # 只在证书真的换过时执行
-    for h in 10.0.0.8 10.0.0.9; do
+    for h in $SYNC_HOSTS; do
         scp -q "$CERT_FILE" "$KEY_FILE" "root@$h:/etc/nginx/ssl/" || return 1
     done
 }
 
-# 钩子2 全部订单处理结束之后(一轮一次;本轮至少有一张证书校验通过才会到这里)
-module_user_final() {
+# 全部订单处理结束之后一次(本轮至少有一张证书校验通过并保存才会到这里)
+module_push_final() {
     have_changes || return 0                     # 本轮没有任何证书更新就直接跳过
     systemctl reload nginx
 }
-
-#----------- 自定义代码到这里结束 ----------
 ```
 
-- **校验通过是前提**: 接口返回的证书已过期 / 无法解析 / 与私钥不匹配时,两个钩子都不会被调用,现有证书也不会被覆盖。
-- 区内可直接调用脚本提供的判定函数: `have_verified`(本轮有证书校验通过并保存)、`have_changes`(本轮有证书文件被更新)。
-- **不需要改 `MODULES`**: `user` 模块默认始终执行,并且固定排在每个阶段的最后(custom_cmd、reload 之后)。
-- 不想让它跑(比如临时只更新文件): 配置区把 `USER_MODULE` 设为 `0`,或环境变量 `USER_MODULE=0` 传入(照常下载校验保存,只跳过你的代码)。
-- 逻辑要复用就在同一块区域里再写普通函数给钩子调用,**不必再开第二个模块**。
-- 想要更早的动作可在区内自加 `module_user_init` / `module_user_pre_download`,但它们发生在**下载与校验之前**,
-  只适合参数检查、准备工作,与「下载完成并校验通过后」的语义相反。
-- 区内直接书写普通语句时,它们在启动阶段(配置与命令行参数解析完、下载开始前)执行一次。
+- **校验通过是前提**: 接口返回的证书已过期 / 无法解析 / 与私钥不匹配时,`post_download` / `on_change` / `final`
+  都不会被调用,现有证书也不会被覆盖。
+- 钩子里可直接调用脚本提供的判定函数: `have_verified`(本轮有证书校验通过并保存)、`have_changes`(本轮有证书文件被更新)。
+- 只有一条命令、不值得写函数时,用预设的 `custom_cmd`(配置 `CUSTOM_CMD` 或命令行 `--cmd`),它同样在校验通过之后执行。
+- `./dnsmgr-cert.sh modules` 会列出脚本里所有已定义的模块及其阶段、执行时机与启用状态。
 - **没有 `MODULE_DIR`,也不 source 外部文件**,部署与迁移永远只拷一个脚本。
-- `./dnsmgr-cert.sh modules` 里 `user` 那一组行会显示「[已启用] 自定义模块 校验通过后执行(见本脚本自定义模块区)」。
+
+> v3.0 起移除了「自定义模块区」和固定的 `user` 模块(连同配置项 `USER_MODULE`): 单条命令交给预设的 `custom_cmd`,
+> 多行逻辑就自己写一个模块,两种写法已覆盖原来的能力。旧配置里残留的 `MODULES="... user"` 会被忽略并 WARN 提示。
 
 > 钩子返回非 0: `init` 阶段只提示;`pre_download` 中止当前订单;`post_download` / `on_change` / `final`
-> 记录 ERROR 并让整体退出码非 0,便于 cron 邮件/监控发现(`user` 的两个钩子属于后一类)。
+> 记录 ERROR 并让整体退出码非 0,便于 cron 邮件/监控发现。
 
 ## 六、子命令与选项
 
@@ -263,14 +264,14 @@ module_user_final() {
 | --- | --- |
 | `download`(默认) | 下载 `CERT_IDS` / `-i` 指定的全部证书,每张先校验再写盘,并按 `MODULES` 执行各阶段钩子;设了 `RENEW_DAYS` 时先做按需判定,本地证书够用则整个订单跳过 |
 | `check` | 检查依赖与配置(打印配置摘要、签名样例、校验深度、下载策略),并试下载校验第一个订单(**始终强制下载一次**) |
-| `modules` | 列出内置模块与自定义模块 `user`、支持的阶段、执行时机与启用状态 |
+| `modules` | 列出脚本里已定义的全部模块(内置与自写)、支持的阶段、执行时机与启用状态 |
 | `list` | 尝试 `POST /api/cert/list` 打印订单列表(文档未收录该接口,失败属正常) |
 
 | 选项 | 说明 |
 | --- | --- |
 | `-o, --out DIR` | 覆盖证书保存目录 |
 | `-i, --cert-id ID` | 追加证书订单 ID(与配置区 `CERT_IDS` 合并去重),可重复 |
-| `-m, --modules LIST` | 覆盖启用的**内置**模块列表,如 `-m 'custom_cmd'`;`-m ''` = 不跑内置模块(自定义模块 `user` 仍会执行) |
+| `-m, --modules LIST` | 覆盖启用的模块列表,如 `-m 'custom_cmd'`;内置模块与自写模块都由它决定,`-m ''` = 所有模块都不跑,只下载保存证书 |
 | `--cmd CMD` | 覆盖 `CUSTOM_CMD` |
 | `--reload CMD` | 覆盖 `RELOAD_CMD` |
 | `--notify CMD` | 覆盖 `NOTIFY_CMD` |
@@ -310,7 +311,7 @@ sudo crontab -e
   所以**用 root 跑最省事**;想让普通用户跑,就把 `OUT_DIR` 和 `LOG_FILE` 都指到该用户可写的位置。
 - 脚本自带锁文件 `${TMPDIR:-/tmp}/.dnsmgr-cert.lock`,上一轮没跑完时本轮直接提示「已有实例正在运行」并退出,
   **不需要再套 `flock`**。
-- 换证后的服务重载交给内置 `reload` 模块或 `user` 模块的 `final` 钩子;别再往 crontab 里单加一条
+- 换证后的服务重载交给内置 `reload` 模块(`RELOAD_CMD`)或自写模块的 `final` 钩子;别再往 crontab 里单加一条
   `systemctl reload nginx`,否则证书没更新时也会白白重载一次。
 - 脚本头部注释里(前 80 行)也写了一份等价的部署与 cron 要点,服务器上没网络也能查:`head -80 dnsmgr-cert.sh`。
 
@@ -414,9 +415,9 @@ journalctl -u dnsmgr-cert.service -n 50          # 看上一次执行的输出
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name ixnic.net;
-    ssl_certificate     /etc/ssl/dnsmgr/ixnic.net.crt.pem;
-    ssl_certificate_key /etc/ssl/dnsmgr/ixnic.net.key.pem;
+    server_name explame.com;
+    ssl_certificate     /etc/ssl/dnsmgr/explame.com.crt.pem;
+    ssl_certificate_key /etc/ssl/dnsmgr/explame.com.key.pem;
 }
 ```
 
@@ -451,8 +452,8 @@ server {
 | 每天跑一次,怕频繁请求接口 / 反复刷文件 | 设 `RENEW_DAYS=15` 或 cron 里加 `-r 15`: 本地证书剩余天数够用就直接跳过,连接口都不请求 |
 | 明明设了 `-r` 却还是每次都下载 | 只有**本地已保存的这张证书**参与判断: 首次运行、`OUT_DIR` 指错、`.crt.pem` 被手工删过、`.info.txt` 丢失都会导致照常下载,日志里会写明原因 |
 | 续签后想立刻拿到新证书 | `dnsmgr-cert.sh -f` 强制下载并校验一次(等价于临时把阈值设为 0) |
-| 只想下载不做其它动作 | `USER_MODULE=0 ./dnsmgr-cert.sh -m ''`(内置模块与自定义模块都不跑) |
-| 泛域名证书文件名 | `*.ixnic.net` 保存为 `wild.ixnic.net.crt.pem`,与同目录下主域名订单的 `ixnic.net.crt.pem` 互不覆盖(`*` 不是 Windows 合法文件名字符,故用 `wild.` 前缀代替) |
+| 只想下载不做其它动作 | `./dnsmgr-cert.sh -m ''`(所有模块都不跑,只下载、校验、保存证书) |
+| 泛域名证书文件名 | `*.explame.com` 保存为 `wild.explame.com.crt.pem`,与同目录下主域名订单的 `explame.com.crt.pem` 互不覆盖(`*` 不是 Windows 合法文件名字符,故用 `wild.` 前缀代替) |
 | 挂上 cron 后一声不响 | `crontab -l` 确认任务在;手动按 cron 的方式跑一次 `sudo crontab -l` 里那行原样命令;再核对 cron 的 `PATH`、`HOME` 和百分号转义(见「七」第 3 小节) |
 | cron 里自定义命令报错或日期错乱 | 多半是百分号没转义,或用了 `~` 开头的路径(cron 的 `HOME` 可能为空);改成全绝对路径并转义 `%` |
 | Windows 编辑后无法运行 | `dos2unix dnsmgr-cert.sh` 或 `sed -i 's/\r$//' dnsmgr-cert.sh` |

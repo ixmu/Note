@@ -3,7 +3,7 @@
 # dnsmgr-cert.sh -- dnsmgr(聚合DNS管理系统) SSL 证书自动下载脚本(单文件 / 模块化版)
 #
 #   接口文档 : https://www.showdoc.com.cn/dnsmgr/11558692653755647
-#   服务地址 : https://pki.ixmu.net
+#   服务地址 : https://ssl.explame.com  (示例站点)
 #   请求方式 : POST /api/cert/order    业务参数: id=SSL证书订单ID
 #   公共参数 : uid / timestamp(10位秒时间戳) / sign
 #   签名规则 : sign = md5(uid + timestamp + key)  拼接后MD5并转小写
@@ -19,9 +19,9 @@
 #   4. 按需下载(可选): 设了 RENEW_DAYS 之后,本地这张证书剩余有效期还够用就不下载新证书,
 #      不请求接口也不校验(只判断 OUT_DIR 下该订单已保存的证书文件; 本地没有则一定下载),
 #      剩余天数小于阈值时才下载并校验; 命令行 -r 指定阈值, -f 强制下载
-#   5. 下载后的附加操作全部模块化(MODULES),已预设 custom_cmd 模块: 证书下载后执行自定义命令
-#      你自己的多行逻辑写在本文件"自定义模块区"(搜索 BEGIN USER CODE),固定一个 user 模块,
-#      它的钩子只在证书下载完成并通过校验之后才执行
+#   5. 下载后的附加操作全部模块化(MODULES): custom_cmd(证书下载校验通过后执行自定义命令)、
+#      reload(本轮有更新时统一重载)、notify(临期告警); 需要多行动作就自己再写一个
+#      module_<模块名>_<阶段>() 函数并加进 MODULES,同样只有这一个脚本
 #   6. 剩余有效期不足 WARN_DAYS 天输出 WARN 日志,便于 cron 邮件或监控告警
 #   7. 只依赖 bash + curl + awk + md5sum(缺失时改用 openssl),无需 jq
 #
@@ -32,13 +32,11 @@
 #     post_download 证书下载完成并通过校验、保存之后(内容有变化 CERT_CHANGED=1)
 #     on_change     证书文件实际发生更新之后(同样在校验通过之后)
 #     final         全部订单处理结束后一次(本轮至少有一张证书校验通过并保存时才执行)
-#   启用哪些内置模块由配置区 MODULES 决定: custom_cmd(下载后执行自定义命令)、
-#   reload(有更新时重载服务)、notify(临期告警)。
-#   自定义模块只有一个,固定叫 user: 下载后的两个钩子已写在本文件"自定义模块区"
-#   (搜索标记 BEGIN USER CODE),填代码就生效,不需要写进 MODULES,且固定排在每个阶段最后。
-#   两个钩子都只在"证书下载完成并通过校验"之后才会被调用,所以可以放心部署与重载;
-#   配置区 USER_MODULE=0 可关闭; 全程只有这一个脚本,不需要 MODULE_DIR,
-#   也不需要额外引入/source 外部文件。
+#   启用哪些模块由配置区 MODULES 决定: custom_cmd(下载后执行自定义命令)、
+#   reload(有更新时重载服务)、notify(临期告警)。三者的下载后钩子都只在
+#   "证书下载完成并通过校验"之后才会被调用,所以可以放心部署与重载。
+#   要加自己的动作: 在本文件里另写 module_<模块名>_<阶段>() 函数并加进 MODULES 即可;
+#   全程只有这一个脚本,不需要 MODULE_DIR,也不需要额外引入/source 外部文件。
 #
 # 使用:
 #   1) 编辑本文件"配置区": API_UID / API_KEY / CERT_IDS / OUT_DIR / CUSTOM_CMD ...
@@ -72,7 +70,7 @@
 #     - 接口有频控时把固定分钟换成范围/步进(如 23-59/7 3 * * *)来错开时间。
 #   日志: 默认追加写 LOG_FILE=/var/log/dnsmgr-cert.log,建议配 logrotate(见 README);
 #         把 LOG_FILE 置空则只输出到标准输出,完全交给 cron 重定向或 systemd journal。
-#   换证后的服务重载交给内置 reload 模块(RELOAD_CMD)或 user 模块 final 钩子,
+#   换证后的服务重载统一交给内置 reload 模块(RELOAD_CMD)处理,
 #   不要再往 crontab 里单加一条 systemctl reload,否则证书没更新时也会白白重载。
 #=====================================================================
 
@@ -80,7 +78,7 @@
 # ---------------------------- 配 置 区 ----------------------------
 # 全部写成 ${环境变量名:-默认值} : 直接改冒号后的默认值即可,同名环境变量优先。
 #=====================================================================
-API_BASE="${API_BASE:-https://pki.ixmu.net}"   # 接口地址,结尾不要带 /
+API_BASE="${API_BASE:-https://ssl.explame.com}"   # 接口地址(示例站点,替换成你自己的 dnsmgr 地址),结尾不要带 /
 API_UID="${API_UID:-1}"                        # 用户ID:后台"用户管理"中查看
 API_KEY="${API_KEY:-请填写你的API接口密钥}"      # API密钥:后台打开API接口后查看(必填)
 CERT_IDS="${CERT_IDS:-27}"                     # SSL证书订单ID,多个用英文逗号分隔,如 27 或 27,28
@@ -103,12 +101,9 @@ CURL_INSECURE="${CURL_INSECURE:-0}"            # 1=跳过HTTPS证书校验(仅�
 # 追加写入的日志文件,留空表示只输出到标准输出(交给 cron 重定向)
 LOG_FILE="${LOG_FILE:-/var/log/dnsmgr-cert.log}"
 
-# 启用的内置模块(空格分隔,按书写顺序执行)。内置: custom_cmd reload notify
-# 你自己的自定义模块(user)不用写在这里: 它默认始终执行,见下面的 USER_MODULE
+# 启用的模块(空格分隔,按书写顺序执行)。内置: custom_cmd reload notify
+# 下载后的自定义操作用 custom_cmd(填 CUSTOM_CMD 或命令行 --cmd),不再另设自定义模块区
 MODULES="${MODULES:-custom_cmd reload}"
-USER_MODULE="${USER_MODULE:-1}"   # 1=执行本脚本"自定义模块区"(搜索 BEGIN USER CODE)里的 user 模块
-                                  # 该模块只在证书下载完成并通过校验之后才执行; 0=整体关闭
-                                  # (关闭后照常下载校验保存,只是不跑你自己写的代码)
 
 #---- 模块 custom_cmd 的参数: 证书下载后执行自定义命令(部署/分发/通知等) ----
 # 命令中可直接使用上下文变量(由脚本在执行该命令时展开):
@@ -141,7 +136,7 @@ set -u
 set -o pipefail
 
 PROG=${0##*/}
-VERSION="2.9"
+VERSION="3.0"
 API_KEY_PLACEHOLDER="请填写你的API接口密钥"
 PHASES="init pre_download post_download on_change final"
 
@@ -229,7 +224,7 @@ $PROG v$VERSION -- dnsmgr SSL 证书自动下载(单文件 / 模块化版)
 子命令:
   download        下载并校验证书(默认子命令)
   check           检查依赖、配置、签名,并试下载校验第一个订单
-  modules         列出内置模块/自定义模块 user 及其阶段
+  modules         列出可用模块、支持的阶段与启用状态
   list            尝试列出证书订单ID(该接口未收录于文档,失败属正常)
 
 选项:
@@ -254,10 +249,8 @@ $PROG v$VERSION -- dnsmgr SSL 证书自动下载(单文件 / 模块化版)
 模块机制:
   内置模块 = 一组约定命名的函数 module_<模块名>_<阶段>() ,阶段: $PHASES
   内置模块启用列表: MODULES (当前: ${MODULES:-空})
-  自定义模块: 只有一个,固定叫 user,下载后的两个钩子已写好在本脚本"自定义模块区"
-              (搜索标记 BEGIN USER CODE),填代码就生效,不用改 MODULES;
-              固定排在每个阶段的最后,且只在证书下载完成并通过校验之后才执行;
-              配置区 USER_MODULE=0 可整体关闭。
+  扩展动作: 需要多行逻辑就在本脚本里另写 module_<模块名>_<阶段>() 函数,
+            并把模块名加进 MODULES(或命令行 -m),同样不需要外部文件
   证书校验: PEM结构 / X.509 解析 / 未过期 / 私钥与证书匹配(后三项需安装 openssl)
             校验不通过不会覆盖现有证书文件,也不会触发下载后的模块
   按需下载: 设了 RENEW_DAYS(或 -r N) 时,本地证书剩余天数不低于阈值就跳过该订单,
@@ -269,7 +262,7 @@ $PROG v$VERSION -- dnsmgr SSL 证书自动下载(单文件 / 模块化版)
   1) 直接编辑脚本顶部"配置区"的默认值(推荐,单文件部署)
   2) 或用同名环境变量临时覆盖:
       API_BASE API_UID API_KEY CERT_IDS OUT_DIR WARN_DAYS RENEW_DAYS FORCE_DOWNLOAD HTTP_TIMEOUT
-      HTTP_RETRIES CURL_INSECURE LOG_FILE MODULES USER_MODULE
+      HTTP_RETRIES CURL_INSECURE LOG_FILE MODULES
       CUSTOM_CMD CUSTOM_CMD_ON_CHANGE_ONLY CUSTOM_CMD_SHELL RELOAD_CMD NOTIFY_CMD
 
 定时任务(服务器部署):
@@ -376,22 +369,14 @@ module_exists() {
 }
 
 init_modules() {
-    # 自定义模块 user 默认始终启用(USER_MODULE=0 可关闭): 自动追加到启用列表末尾,
-    # 于是它在每个阶段都固定最后执行; 它只有下载校验之后的钩子,不用写进 MODULES。
-    if [ "$USER_MODULE" = "1" ]; then
-        case " $MODULES " in
-            *" user "*) : ;;
-            *) MODULES="$MODULES user" ;;
-        esac
-    fi
     _ok=""
     for _m in $MODULES; do
-        if [ "$_m" = "user" ] && [ "$USER_MODULE" != "1" ]; then
-            info "自定义模块 user 已由 USER_MODULE=0 关闭,已忽略"
-            continue
-        fi
         if ! module_exists "$_m"; then
-            warn "模块 $_m 不存在(未找到 module_${_m}_* 函数),已忽略"
+            if [ "$_m" = "user" ]; then
+                warn "模块 user(自定义模块区)已在 v3.0 移除: 下载后的动作请改用 custom_cmd,多行逻辑可自行定义 module_<模块名>_<阶段>"
+            else
+                warn "模块 $_m 不存在(未找到 module_${_m}_* 函数),已忽略"
+            fi
             continue
         fi
         _ok="$_ok $_m"
@@ -545,51 +530,6 @@ module_notify_post_download() {
     fi
     return 0
 }
-
-#================ 自 定 义 模 块 区 (BEGIN USER CODE) ================
-# 下载后的自定义操作只有这一个模块,固定叫 user。这里只放两个钩子,而且它们
-# 都在"证书下载完成并通过校验"之后才会被调用(校验含 PEM 结构 / X.509 解析 /
-# 未过期 / 私钥与证书是否匹配),所以可以放心地部署文件、重载服务:
-#
-#   post_download  每张证书下载、校验通过并保存后各执行一次(内容变了 CERT_CHANGED=1)
-#   final          全部订单处理结束后执行一次(本轮至少有一张证书校验通过才会到这里)
-#
-# 钩子内可直接使用这些上下文变量:
-#   CERT_ID CERT_DOMAIN CERT_DIR CERT_FILE KEY_FILE
-#   CERT_ISSUE CERT_EXPIRE CERT_CHANGED CERT_VERIFIED MODULE_PHASE  (OUT_DIR 等配置项同样可读)
-# 钩子返回非 0 视为该阶段执行失败(记 ERROR,整体退出码为 1)。
-# 本模块始终执行且固定排在每个阶段的最后,不需要写进 MODULES;
-# 暂时不想让它跑就在配置区把 USER_MODULE 设为 0(照常下载校验保存,只跳过你的代码)。
-# 逻辑要复用就在本区内加普通函数给钩子调用即可,不必再开第二个模块。
-# 提示: CERT_DOMAIN 是文件名里的域名(泛域名订单为 wild.域名),
-#       CERT_FILE / KEY_FILE 是刚校验通过并保存好的证书与私钥路径。
-#       你一般不需要再写 module_user_init / module_user_pre_download,
-#       那两个阶段发生在证书下载校验之前,和"下载完成并校验通过后"的语义相反。
-
-#---------- 自定义代码从这里开始 ----------
-
-# 钩子1 每张证书下载完成、校验通过并保存之后: 部署/分发/通知写这里
-module_user_post_download() {
-    # 只在证书确实有更新时才做后续动作(不需要就删掉下一行):
-    # [ "$CERT_CHANGED" = "1" ] || return 0
-    # 示例1 合并成 haproxy 需要的单文件:
-    # cat "$CERT_FILE" "$KEY_FILE" > "/etc/haproxy/certs/$CERT_DOMAIN.pem" || return 1
-    # 示例2 分发给另外两台机器:
-    # for h in 10.0.0.8 10.0.0.9; do
-    #     scp -q "$CERT_FILE" "$KEY_FILE" "root@$h:/etc/nginx/ssl/" || return 1
-    # done
-    return 0
-}
-
-# 钩子2 全部订单处理结束之后一次: 统一重载服务/发通知(可留空)
-module_user_final() {
-    # have_changes || return 0        # 本轮没有任何证书更新就直接跳过
-    # systemctl reload nginx
-    return 0
-}
-
-#----------- 自定义代码到这里结束 ----------
-#================= 自 定 义 模 块 区 (END USER CODE) ==================
 
 #================ 基础工具 ================
 md5_hex() {
@@ -1130,12 +1070,6 @@ do_check() {
 
 do_modules() {
     _en=$(printf '%s' "$MODULES" | sed 's/^ *//; s/  */ /g; s/ $//')
-    if [ "$USER_MODULE" = "1" ]; then
-        case " $_en " in
-            *" user "*) : ;;
-            *) _en="${_en:+$_en }user" ;;
-        esac
-    fi
     echo "$PROG v$VERSION 可用模块 (当前启用: ${_en:-无})"
     echo
     printf "%-10s %-12s %s\n" "模块" "阶段" "[状态] 执行时机 / 说明"
@@ -1150,13 +1084,9 @@ do_modules() {
         done
         [ -n "$_m" ] || continue
         _state="未启用"
-        if [ "$_m" = "user" ]; then
-            [ "$USER_MODULE" = "1" ] && _state="已启用"
-        else
-            case " $MODULES " in
-                *" $_m "*) _state="已启用" ;;
-            esac
-        fi
+        case " $MODULES " in
+            *" $_m "*) _state="已启用" ;;
+        esac
         case $_p in
             init)          _when="初始化检查" ;;
             pre_download)  _when="请求接口前" ;;
@@ -1169,18 +1099,16 @@ do_modules() {
             custom_cmd) _tip="预设模块 下载后执行 CUSTOM_CMD" ;;
             reload)     _tip="内置模块 有更新时执行 RELOAD_CMD" ;;
             notify)     _tip="内置模块 临期时执行 NOTIFY_CMD" ;;
-            user)       _tip="自定义模块 校验通过后执行(见本脚本自定义模块区)" ;;
-            *)          _tip="其他模块(自定义模块区内另写)" ;;
+            *)          _tip="自写模块 在本脚本写 module_<模块名>_<阶段>() 并加进 MODULES" ;;
         esac
         printf "%-12s %-14s [%s] %s - %s\n" "$_m" "$_p" "$_state" "$_when" "$_tip"
     done
     echo
     echo "模块可读取的上下文变量: CERT_ID CERT_DOMAIN CERT_DIR CERT_FILE KEY_FILE"
     echo "                        CERT_ISSUE CERT_EXPIRE CERT_CHANGED CERT_VERIFIED MODULE_PHASE"
-    echo "自定义模块: 只有一个,固定叫 user,两个下载后的钩子已写在本脚本的自定义模块区"
-    echo "            (搜索标记 BEGIN USER CODE),直接填代码就生效,不需要改 MODULES。"
-    echo "            仅在证书下载完成并通过校验之后执行,顺序固定排在每个阶段的最后;"
-    echo "            配置区 USER_MODULE=0 可整体关闭。"
+    echo "扩展动作: 在本脚本里另写 module_<模块名>_<阶段>() 函数并加进 MODULES 即可生效,"
+    echo "          原「自定义模块区」(user 模块 / USER_MODULE)已在 v3.0 移除,单条动作用 custom_cmd;"
+    echo "          post_download / on_change / final 都在证书下载完成并通过校验之后才触发。"
 }
 
 do_list() {
