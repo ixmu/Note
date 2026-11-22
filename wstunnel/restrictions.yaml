@@ -1,0 +1,24 @@
+# wstunnel server restrictions (whitelist, hot-reloaded on change)
+# Nothing is allowed unless it matches a rule below.
+restrictions:
+  - name: "auth-tunnels"
+    description: "Path prefix + Basic auth required; forward tunnels only to whitelisted ports"
+    match:
+      - !PathPrefix "^my-secret-path$"
+      - !Authorization "^[Bb]asic +d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==$"
+    allow:
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - 2222
+          - 5001
+          - 8100
+          - 9999
+          - 10000
+          - 55688
+        host: "^.*$"
+        cidr:
+          - 0.0.0.0/0
+          - ::/0

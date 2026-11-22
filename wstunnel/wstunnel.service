@@ -1,0 +1,17 @@
+[Unit]
+Description=wstunnel server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/wstunnel server \
+  --tls-certificate /opt/wstunnel/fullchain.pem \
+  --tls-private-key /opt/wstunnel/privkey.pem \
+  --restrict-config /opt/wstunnel/restrictions.yaml \
+  wss://0.0.0.0:55443
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
