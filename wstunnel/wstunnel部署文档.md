@@ -120,13 +120,28 @@ unit 中把 `--http-upgrade-credentials ...` 换成 `--http-headers-file /etc/ws
 | `--http-upgrade-credentials` | ❌ 无 | 只能写命令行或 auth.txt |
 | `-L` / `-R` / `--tls-verify-certificate` | ❌ 无 | 只能写命令行 |
 
+### 4.4 本地监听地址（开放到局域网/所有网卡）
+
+客户端 `-L` 缺省只绑 **127.0.0.1**（仅本机可达）。监听所有网卡在 URL 中显式加 BIND 前缀（语法 `{tcp,udp}://[BIND:]PORT:HOST:PORT`）：
+
+```
+-L tcp://0.0.0.0:2223:gw.pyproxy.com:2222         # IPv4 全部网卡
+-L tcp://[::]:2223:gw.pyproxy.com:2222            # IPv6 全部网卡
+-L tcp://192.168.1.10:2223:gw.pyproxy.com:2222    # 只绑指定网卡（推荐）
+```
+
+**安全提醒**：TCP/UDP 隧道这些本地端口**本身没有任何鉴权**，开到 0.0.0.0 后能连到端口的任何机器都能借隧道访问目标服务。建议：
+
+- 防火墙按来源网段白名单：`firewall-cmd --add-rich-rule="rule family=ipv4 source address=192.168.0.0/24 port port=2223 protocol=tcp accept"`（注意先 remove 掉宽泛放行规则）
+- 或只绑内网网卡 IP（如上第三行写法）
+- 动态端口的场景可改用 `socks5://0.0.0.0:1212?login=xx&password=xx`（带账号密码）
 ## 5. 验收测试
 
 ```bash
 # ① 正确姿势 → 应成功
 wstunnel client --tls-verify-certificate \
   --http-upgrade-credentials 'wstunnel:Wstunnel-2026' -P my-secret-path \
-  -L tcp://2223:gw.pyproxy.com:2222 wss://<域名>:55443
+  -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 wss://<域名>:55443
 
 # ② 不带任何密钥（模拟恶意扫描）→ 应被拒
 wstunnel client -L tcp://3333:127.0.0.1:22 wss://<域名>:55443
@@ -161,6 +176,7 @@ sed -i 's/d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==/<新串>/' \
 | 客户端证书报错 | 忘记加 `--tls-verify-certificate` 或证书链不完整 | 用 fullchain（含中间证书），并显式开启校验 |
 | 域名隧道不通、IP 隧道正常 | 服务器解析不了目标域名 | 服务端加 `--dns-resolver dns://223.5.5.5` |
 | 客户端起不来，address already in use | 本地端口冲突（重点查 10000） | 换本地端口或停占用服务 |
+| 端口只能本机访问 | `-L` 缺省绑 127.0.0.1 | BIND 前缀加 `0.0.0.0:`，见 4.4 |
 | 隧道频繁断开重连 | 中间设备回收空闲连接 | 调小 `--websocket-ping-frequency`（默认 30s，可设 15s） |
 | 恶意连接一直试 | 只拦到 HTTP 层，属正常 | 55443 非标端口 + 双暗号已足够；要更强可上 mTLS |
 
