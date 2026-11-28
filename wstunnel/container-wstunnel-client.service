@@ -8,6 +8,7 @@
 # 两条暗号都直接写在本文件里（暗号1 走 -P、暗号2 走 --http-upgrade-credentials）⇒ 四条连带结论：
 #   1. 客户端不挂任何宿主机文件：不需要 /etc/wstunnel 目录，也不需要 --user 0:0 与卷的 ,z 标签
 #      （容器按镜像默认 USER app/uid1000 跑即可；服务端因为要读 600 私钥仍然保留那两项）
+#      唯一例外：服务端是自签/私有 CA 时要往 /etc/ssl/certs 里挂一个 ca.pem（见下面可选块）
 #   2. install -Dm600 只挡"读文件"；同机其他用户仍能从 ps -ef、/proc/<容器主进程>/cmdline、
 #      systemctl --user show -p ExecStart、podman inspect 看到明文 ⇒ 多用户机器改回
 #      --http-headers-file /etc/wstunnel/auth.txt，并把 -v /etc/wstunnel:/etc/wstunnel:ro,z
@@ -68,6 +69,13 @@ ExecStart=/usr/bin/podman run \
         -L tcp://0.0.0.0:5002:us.rapidproxy.io:5001 \
         -L tcp://0.0.0.0:55689:45.149.172.51:55688 \
         wss://tunnel.example.com:55443
+# 可选（自签/私有 CA 必做）：容器只信镜像内的系统信任库，客户端没有自定义 CA 的参数
+#   （--tls-client-ca-certs 是服务端专用），实测症状是静默失败：服务端
+#   "received fatal alert: UnknownCA"、客户端只反复打 Doing TLS handshake 后 0.6→6.4s 指数退避，
+#   unit 一直 active、容器一直 healthy。解法是往系统信任目录里塞一个文件，无需重建镜像也无需 --user：
+#   -v /etc/wstunnel/ca.pem:/etc/ssl/certs/wstunnel-ca.pem:ro \
+#   （rustls-native-certs 0.8.5 会收 /etc/ssl/certs 下的 pem；SELinux enforcing 下卷尾补 ,z；
+#    改 CA 后要 restart —— 根 store 每 3600s 才整体重载一次，README §7.10 #54）
 # 可选：中间设备回收空闲连接导致频繁重连时加 --websocket-ping-frequency 15s
 # 可选：本机 IPv6 异常、连接偏慢时加 --dns-resolver-prefer-ipv4
 # 可选：镜像未预拉取时首启会隐式 pull；要严格离线用 --pull=never

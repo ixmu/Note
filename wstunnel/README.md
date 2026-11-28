@@ -2,7 +2,8 @@
 
 > 版本基准：**wstunnel v11.1.0**（Rust 版，已核对 = 上游 GitHub Releases 最新版）
 > 部署形态：**服务端与客户端都跑 Podman 容器**（`ghcr.io/erebe/wstunnel`，rootless 用户单元）
-> 首次整理 2026-11-22 · 审计修订 2026-11-28（同日五次跟进：服务端 → 容器、路径前缀改 `cdn-socket-stream`、客户端 → 容器、两端单元统一为 `container-wstunnel-{server,client}.service` 成对命名、配置目录统一到 `/etc/wstunnel`、客户端凭据直接写进 unit（不再用 `auth.txt`））
+> 首次整理 2026-11-22 · 审计修订 2026-11-28（同日六次跟进：服务端 → 容器、路径前缀改 `cdn-socket-stream`、客户端 → 容器、两端单元统一为 `container-wstunnel-{server,client}.service` 成对命名、配置目录统一到 `/etc/wstunnel`、客户端凭据直接写进 unit（不再用 `auth.txt`）、
+> 真机跑通两个单元的生命周期与端到端转发并补齐私有 CA 信任配方（§7.10））
 > 特点：自有域名 + SSL 证书（wss）+ 双重鉴权（路径前缀 + Basic）+ 目标 `host:port` 白名单
 > 本文件原名 `wstunnel部署文档.md`，已重命名为 `README.md`，便于在 GitHub 上进入 `wstunnel/` 目录直接阅读。
 
@@ -17,6 +18,8 @@
 
 两个单元都是 `podman generate systemd` 风格（`ExecStart=podman run …`、`Type=notify` + `--sdnotify=conmon`、`WantedBy=default.target`），命名成对（`container-wstunnel-server` / `container-wstunnel-client`），全部操作按当前用户执行，不需要 `sudo`（`/opt`、`/etc` 的写入属主除外）。
 
+> ✅ 两个单元已在真机（Debian 13 + podman 5.4.2 + systemd 257）装起来跑通生命周期与端到端转发，实测记录与新增结论见 §7.10。
+>
 > 服务端单元原名 `container-wstunnel.service`，已 `git mv` 为 `container-wstunnel-server.service`（改名原因与代价见 §3.5、结论 #26–#27）。
 
 ```bash
@@ -143,7 +146,7 @@ sudo firewall-cmd --permanent --add-port=55443/tcp && sudo firewall-cmd --reload
 
 另外两点与卷直接相关：
 
-- **卷只读（本轮已落地）**：两个单元统一 `-v /etc/wstunnel:/etc/wstunnel:ro,z`。wstunnel 对证书与 restrictions 只需**读取**，热加载走 inotify，写发生在宿主机侧、同一个 inode，只读挂载照样收得到事件（未实测，见 §7.6 脚注）；root 放进 `/etc` 的配置也不会被容器内进程改写。证书续期由宿主机侧 deploy-hook 写入（§5.2）。
+- **卷只读（本轮已落地）**：两个单元统一 `-v /etc/wstunnel:/etc/wstunnel:ro,z`。wstunnel 对证书与 restrictions 只需**读取**，热加载走 inotify，写发生在宿主机侧、同一个 inode，只读挂载照样收得到事件（**真机已实测**：向 `/etc/wstunnel/restrictions.yaml` 追加一条规则后服务端未重启即放行新目标，§7.10 #53；SELinux enforcing 分支仍未实测）；root 放进 `/etc` 的配置也不会被容器内进程改写。证书续期由宿主机侧 deploy-hook 写入（§5.2）。
 - **镜像只有一个**：`server` 与 `client` 是同一镜像的两个子命令，两个单元的镜像引用必须逐字一致（差异只在结尾子命令，见 §4 开头对照表）。
 - **`--network podmanv6` 必须已存在**，否则服务进入 restart loop；容器内解析公网域名走该网络的内置 DNS（aardvark-dns 转发宿主机 resolver）。宿主机 DNS 异常时给 wstunnel 追加 `--dns-resolver dns://223.5.5.5`（DoT 用 `dns+tls://8.8.8.8?sni=dns.google`）。
 
@@ -163,6 +166,15 @@ sudo firewall-cmd --permanent --add-port=55443/tcp && sudo firewall-cmd --reload
 StartLimitIntervalSec=0
 # 单元文件里没有 ExecReload；改配置靠热加载，换镜像靠 podman auto-update，
 # 只有改启动参数时才需要 systemctl --user restart container-wstunnel-server
+
+[Service]
+# 真机实测：`systemctl --user stop` 之后 unit 落在 failed（Result=exit-code、ExecMainStatus=143）
+# 而不是 inactive —— 镜像的 ENTRYPOINT 是 dumb-init，收到 SIGTERM 后转发给子进程并以 143 退出，
+# 退出码原样传给 systemd（§7.10 #51）。想让"正常停止"显示成干净状态就加下面这行：
+SuccessExitStatus=143
+# 实测加上以后 stop → inactive / Result=success，且 Restart=always 不受影响（容器被 kill 仍自愈、
+# NRestarts 照常递增）。若还想把 OOM/被 SIGKILL 也记成"正常"，写成 `SuccessExitStatus=143 137`，
+# 代价是真异常退出也不再标 failed ⇒ 判活别只靠 is-active
 ```
 
 日志排查用 `podman logs -f wstunnel`（容器 stdout）与 `journalctl --user -u container-wstunnel-server.service`（生命周期）。客户端单元已自带 `StartLimitIntervalSec=0` 与 `RestartSec=5`。
@@ -213,10 +225,11 @@ systemctl --user daemon-reload && systemctl --user enable --now container-wstunn
 |---|---|---|
 | 子命令 | `/home/app/wstunnel server …` | `/home/app/wstunnel client …` |
 | 网络 | `--network podmanv6` + `-p 55443:55443` | `--network host`（6 条 `-L` 的监听直接落宿主机） |
-| `/etc/wstunnel` | `fullchain.pem`、`privkey.pem`、`restrictions.yaml` | 用不到（凭据在 unit 里） |
+| `/etc/wstunnel` | `fullchain.pem`、`privkey.pem`、`restrictions.yaml` | 用不到（凭据在 unit 里）；**例外**：服务端是自签/私有 CA 时要只读挂一个 `ca.pem`，见 §4.3 第 5 条 |
 | 卷 | `-v /etc/wstunnel:/etc/wstunnel:ro,z` | 无挂载 ⇒ 不涉及 `,z` 标签 |
 | `--user` | `0:0`（镜像默认 `app`/1000 读不到 600 私钥） | 沿用镜像默认 `app`(1000)，因为没有文件要读 |
 | 暗号1 | 由 `restrictions.yaml` 的 `!PathPrefix` 判定（只校验，不代客户端决定前缀） | 命令行 `-P cdn-socket-stream`（§4.3 第 1 条） |
+| TLS 信任 | 只需要能读到证书 | 只信**镜像内系统信任库**（`ca_reloader` 取 `rustls-native_certs`），上游无客户端自定义 CA 参数 ⇒ 私有 CA 必须挂进 `/etc/ssl/certs`（§4.3 第 5 条、§7.10 #47） |
 | 镜像引用 | `ghcr.io/erebe/wstunnel:latest` | 同左，**两处必须同步**，换 tag 一起改 |
 
 > 客户端单元初稿漏写了镜像名（`-v …:ro,z` 后直接跟 `/home/app/wstunnel client`），podman 会把 `/home/app/wstunnel` 当镜像解析并报 `no such image`；已修，见 §7.6 #28。
@@ -271,11 +284,16 @@ systemctl --user enable --now container-wstunnel-client.service
 loginctl enable-linger "$USER"
 podman logs --tail 50 wstunnel-client
 ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # 6 个本地端口已在宿主机监听
+loginctl show-user "$USER" -p Linger                    # yes 才能保证重启后自启（§7.10 实测：默认 no）
+# ⚠ 到这一步日志里只有 6 行 "Starting TCP server listening cnx on …"，**没有**"已连上服务端"的成功行：
+#   客户端是按需建连，没有流量就不发起握手（§7.10 #48）。所以必须主动打一次流量再收工，例如：
+nc -z 127.0.0.1 2223 && curl -sv https://tunnel.example.com:55443/cdn-socket-stream/events 2>&1 | tail -5
+#   第二条用来确认 TLS 层：若服务端日志出现 received fatal alert: UnknownCA，按 §4.3 第 5 条配方 A 挂 CA
 ```
 
 注意：**本机 10000 端口**会被占用（映射到 `43.134.70.211:9999`），部署前先确认无冲突；`--network host` 下这个监听直接出现在宿主机命名空间，`podman ps --port` 是看不到端口映射的。
 
-### 4.3 容器化后的 4 个关键差异（务必逐条确认）
+### 4.3 容器化后的 5 个关键差异（务必逐条确认）
 
 | # | 差异 | 不处理的后果 | 本单元做法 |
 |---|---|---|---|
@@ -283,6 +301,25 @@ ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # 6 个本地端口已�
 | 2 | `-L` 的 `0.0.0.0` 监听发生在容器 netns 内 | bridge 网络下端口只在容器里，宿主机/局域网都连不上 | `--network host`（6 个 `-L` 原样生效，省掉 6 行 `-p`）；用 bridge 则须逐条 `-p PORT:PORT`，且只支持 TCP |
 | 3 | 镜像 `USER app`(1000) 经 rootless uid 映射后，读不到属主为你的 600 文件 | 挂进来的文件读不到 → crash loop（`podman logs` 见 Permission denied） | **本方案客户端不挂文件，暂时无关**；改回文件凭据或上 mTLS 时补 `--user 0:0`（服务端已带，§3.3） |
 | 4 | SELinux 对 bind mount 需要安全标签 | 文件权限正常仍 `Permission denied` | 同上，只在有 `-v` 时才需要，届时卷尾加 `,z`（服务端已带） |
+| 5 | **容器的 TLS 根只有镜像内的系统信任库**：`--tls-verify-certificate` 下，自签 / 私有 CA / 只有中间证书没带根的场景一律被拒，且**没有任何客户端参数能指定自定义 CA**（`--tls-client-ca-certs` 是服务端用的，`config.rs:379`；根 store 见 `protocols/tls/server.rs:116` + `tunnel/ca_reloader.rs:59-72`） | 真机实测症状最阴：服务端 `error while accepting TLS connection received fatal alert: UnknownCA`，客户端只在 INFO 里反复 `Doing TLS handshake` 按 0.6/0.8/1.6/3.2/6.4s 退避，`podman ps` 一直 healthy、`systemctl is-active` 一直 active（§7.10 #47、#48） | 把 CA 塞进系统信任目录（下面配方 A），或换 Public 签发的证书 / 不校验（配方 B/C） |
+
+**私有 CA 的三种配法（实测只有 A 无副作用）**：
+
+```bash
+# 配方 A（推荐，真机验证有效）：单文件挂进系统信任目录
+#   rustls-native-certs(0.8.5) 会把 /etc/ssl/certs 下的 *.pem/*.crt 一起收进根 store，
+#   所以丢一个文件进去就行，不必重建镜像、也不必 --user（文件 644 即可，容器内 uid 1000 只读）
+        -v /etc/wstunnel/ca.pem:/etc/ssl/certs/wstunnel-ca.pem:ro \
+#   SELinux enforcing 下卷尾补 ,z（本项在 Debian 无 SELinux 环境实测，RedHat 系要自己验一遍）
+
+# 配方 B（整体替换）：-e SSL_CERT_FILE=/etc/wstunnel/ca.pem —— 根 store 会变成"只信这一个 CA"，
+#   日后若目标服务换成公网证书会静默不认；换 CA 文件后老进程最多 1 小时才重载（§7.10 #54），直接 restart 更快
+
+# 配方 C（放弃校验）：去掉 --tls-verify-certificate —— 变成 NullVerifier，
+#   暗号2 在 URL 明文串（TLS 内）里仍会送，但证书 pin 面消失；只有目标 IP 直连、无域名时才考虑
+```
+
+> 换 CA 之后：`systemctl --user restart container-wstunnel-client`。根 store 是**每小时整体重载**（`wstunnel-cli/src/main.rs:108` → `tunnel/ca_reloader.rs:22-38`，interval 缺省 3600s），别等它自己刷（§7.10 #54）。
 
 环境变量与命令行参数在容器里**全部**要经 `-e` / `--env-file` / `ExecStart` 命令行传入（暗号2 也属于这一类，它没有对应环境变量，只能进 `ExecStart`，见 §4.1），见 §4.4 对照表；集中管理可用 `-v /etc/wstunnel/client.env:/etc/wstunnel/client.env:ro,z` 配 `--env-file /etc/wstunnel/client.env`。
 
@@ -336,6 +373,7 @@ Network=host
 AutoUpdate=registry
 Label=io.containers.autoupdate=registry
 # 不挂宿主机文件（凭据在 Exec 行里），故 Volume=/User= 两行都不需要
+# 例外：自签/私有 CA 时要补 Volume=/etc/wstunnel/ca.pem:/etc/ssl/certs/wstunnel-ca.pem:ro（§4.3 第 5 条）
 # 前缀同样走 -P，与两个 unit 一致。Quadlet 的 [Container] Environment= 确实会进容器，
 # 但与 -P 并存时 -P 赢，别一半 env 一半 -P
 Exec=/home/app/wstunnel client -P cdn-socket-stream --tls-verify-certificate --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
@@ -364,6 +402,8 @@ systemctl --user daemon-reload && systemctl --user start wstunnel-client.contain
 用回早期的 `wstunnel-client.service`：`ExecStart=/usr/local/bin/wstunnel client -P cdn-socket-stream …`，与容器形态逐字一致。裸机下 `Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream` 同样有效（与 §4.3 第 1 条正好相反——容器里 `[Service] Environment=` 不进容器），但为了让两种形态写法统一，仍推荐 `-P`。加固集与注意事项同 §3.6：`LimitNOFILE=65535`、`RestartSec=5`、`StartLimitIntervalSec=0`、`ProtectSystem=strict` 等；`--http-upgrade-credentials` 写在命令行时，`chmod 600` 的 unit 只挡读文件、挡不住 `ps`（容器形态同理，见 §4.1）。
 
 ## 5. 验收测试
+
+> 下面 ②③④⑥ 四条负例必须用**真的 client 进程**发起：裸 curl 到不了 restrictions 判定那一步（JWT 解析在前），只会一律返回 400，看不出白名单有没有生效（§7.10 #49）。没有裸二进制就用 ⑦ 的容器形态。
 
 ```bash
 # ① 正确姿势 → 应成功
@@ -472,16 +512,22 @@ systemctl --user daemon-reload && systemctl --user restart container-wstunnel-cl
 ```bash
 # 服务端
 systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-server.service
-podman ps --filter name=wstunnel --format '{{.Names}} {{.Status}} {{.Image}}'
-podman logs --since 10m wstunnel | grep -E 'accepted due to|Rejecting|listening'
-systemctl --user show container-wstunnel-server.service -p NRestarts -p ExecStart
+# ⚠ --filter name= 是子串匹配：name=wstunnel 会连带命中 wstunnel-client，判"服务端容器是否存在"必须锚定
+podman ps -a --filter name='^wstunnel$' --format '{{.Names}} {{.Status}} {{.Image}}'
+podman logs --since 10m wstunnel | grep -E 'matched restriction|Rejecting|listening'
+systemctl --user show container-wstunnel-server.service -p NRestarts -p Result -p ExecMainStatus -p ExecStart
 # 客户端
 systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-client.service
-podman logs --since 10m wstunnel-client | grep -E 'connected to|Rejecting|error'
-ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'
+podman logs --since 10m wstunnel-client | grep -Ei 'Doing TLS handshake|error|panic'   # 正常态日志很安静，见 §7.10 #48
+ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # host 网络下监听在宿主机，属主进程显示 conmon 属正常
+# 主动打一次流量（客户端按需建连，不打流量 = 什么都没验证，§7.10 #48）
+nc -z 127.0.0.1 2223 && echo OK
+systemctl --user show container-wstunnel-client.service -p NRestarts -p Result
 # 两端共用
 podman auto-update --dry-run
 python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"   # 改完 YAML 先自检
+loginctl show-user "$USER" -p Linger                                                # 重启后自启的前提，§3.2
+journalctl --user -u container-wstunnel-{server,client}.service --since -1h -o cat | grep -Ei 'Stopping|Stopped|Started|Scheduled restart'
 ```
 
 ### 6.5 常见问题速查
@@ -498,6 +544,10 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 | `podman logs` 空、unit 进入 failed | 网络名不存在、端口被占、镜像未拉取、触发 systemd 限流 | `podman network exists …`；`ss -lntp \| grep 55443`；`podman pull …:v11.1.0`；`StartLimitIntervalSec=0` |
 | 服务器重启后服务没起来 | rootless 用户单元未开机启动 | `loginctl enable-linger "$USER"` |
 | 客户端证书报错 | 忘加 `--tls-verify-certificate`，或证书链不完整 | 用 fullchain（含中间证书）并显式开启校验；镜像已内置 `ca-certificates` |
+| **服务端日志 `received fatal alert: UnknownCA`**，客户端一直 `Doing TLS handshake` 后退避 | 客户端容器只信镜像内系统信任库，服务端是自签/私有 CA（真机实测：容器 healthy、unit active，一条隧道都不通） | §4.3 第 5 条配方 A：`-v /etc/wstunnel/ca.pem:/etc/ssl/certs/wstunnel-ca.pem:ro`（§7.10 #47） |
+| 客户端 `active` + 容器 healthy，但没人能用 | 按需建连 ⇒ 启动日志只有 6 行 `listening cnx`，看不到"是否连上服务端" | 按 §6.4 主动打一次流量；服务端应出现 `Tunnel accepted due to matched restriction: <规则名>`（§7.10 #48） |
+| `systemctl --user stop` 后 unit 显示 `failed`（`Result=exit-code`、`ExecMainStatus=143`） | 镜像 `ENTRYPOINT=dumb-init` 收到 SIGTERM 以 143 退出，退出码原样传播；容器与 cidfile 其实都清理干净了 | 无害；想显示 `inactive` 就加 `SuccessExitStatus=143`（§3.5、§7.10 #51） |
+| 换/加 CA 后客户端迟迟不认 | 系统根 store 每小时整体重载（`main.rs:108` → `ca_reloader.rs:22-38`） | `systemctl --user restart container-wstunnel-client`，别等自刷（§7.10 #54） |
 | 域名隧道不通、IP 隧道正常 | 容器/宿主机解析不了目标域名 | wstunnel 追加 `--dns-resolver dns://223.5.5.5`（DoT 用 `dns+tls://8.8.8.8?sni=dns.google`） |
 | 客户端起不来，address already in use | 宿主机本地端口冲突（重点查 10000） | 换本地端口或停占用服务 |
 | 隧道频繁断开重连 | 中间设备回收空闲连接 | 调小 `--websocket-ping-frequency`（默认 30s，可设 15s） |
@@ -623,7 +673,57 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 | 45 | 低 | §4.6 Quadlet 示例原本用 `[Container] Environment=`（该写法在 Quadlet 里确实进容器，与 unit 的 `[Service] Environment=` 不同），与 unit 形态不一致会造成两套抄写模板漂移 | 示例改为 `Exec=/home/app/wstunnel client -P cdn-socket-stream …`，并注明两种入口在本方案里二选一 |
 | 46 | 信息 | 简化收益：§6.1（换密码）与 §6.2（换前缀）在客户端侧的操作步骤完全合并为「改 unit → `daemon-reload` → `restart`」，不再区分「一个热一个不热」；§5 用例 ⑦ 与单元 `ExecStart` 同形态，复制即用 | 文档相应段落合并改写；历史条目 #19、§7.8 保留原结论并加指向，不改写历史 |
 
-**未在本机验证的项**（本仓库所在容器无 podman、无 systemd 用户实例、无 `wstunnel` 二进制）：真实握手与转发、podman 卷权限与 SELinux 标签行为（含 `/etc` 下 `:z` 重标与 filetrans 继承，§7.6 #31）、只读 bind mount 上的 inotify 热加载、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的实际可见范围、`--network host` 下的端口监听、`podman auto-update` 重建流程、`%d` 说明符与 Quadlet `[Install]` 的版本相关行为、`-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 同时给出时命令行优先（依据 clap `env=` 仅在命令行缺省时取值的通用语义 + `config.rs:159` 的 `env=` 绑定推导，未在真二进制上跑对照实验；本方案已统一用 `-P`，可用 `podman inspect` 复核生效值，见 §6.5）。上线前按 §5 全量跑一遍。已完成的本地验证：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。
+### 7.10 真实环境实测（2026-11-28，两个单元的生命周期 + 端到端转发）
+
+同一台真机把服务端和客户端两个单元都装起来跑通（本机即仓库所在机器，正好是 rootless podman + systemd 用户实例的完整环境；测试痕迹已全部回滚，仓库外无残留）。
+
+| 项目 | 实测值 |
+|---|---|
+| 发行版 / 内核 | Debian 13 trixie · `6.12.118+deb13-amd64` |
+| systemd / podman | `257 (257.13-1~deb13u1)` / `5.4.2`（overlay + crun） |
+| 运行形态 | rootless：`systemd --user`（uid 0）+ 手工建的 `podmanv6`（`--ipv6`，网关 10.89.0.1） |
+| 镜像 | `ghcr.io/erebe/wstunnel:latest` → `wstunnel-cli 11.1.0`、`Created=2026-10-19`、`sha256:8efb2b5b6f03…`（与本文版本基准一致） |
+| 证书 | 自签 CA + 该 CA 签的服务端证书（SAN `tunnel.example.com`），`/etc/hosts` 把域名指到 127.0.0.1 |
+| 数据面 | 宿主机 `python3 -m http.server 18081` 当临时目标，客户端加一条 `-L tcp://0.0.0.0:18080:198.247.1.119:18081`，`restrictions.yaml` 追加对应 `!Tunnel`（`cidr 198.247.1.119/32` + `port "18081"`） |
+
+**结果**：31 项断言里 28 项直接通过，2 项是"期望 `inactive` 实际 `failed`"——这是产品行为不是缺陷（#51），1 项是验收脚本自身误报（#55）。
+
+| 维度 | 检查内容 | 结果 |
+|---|---|---|
+| 语法 | 两个 unit 原样 `install` 后 `systemd-analyze --user verify` | ✅ 零告警（此前在无 systemd 的容器里跑时还会报二进制/man 缺失，真机上连这两条都没有） |
+| 启动 | `systemctl --user enable --now` ×2 | ✅ 双双 `active`；`Type=notify` + `--sdnotify=conmon` 生效，无 start-limit、`NRestarts=0`；`default.target.wants/` 两个符号链接就位 |
+| 端口 | 服务端 `-p 55443:55443`；客户端 `--network host` 的 6 条 `-L` | ✅ 55443 已发布；6 个监听直接落宿主机（`podman ps --port` 为空、`ss` 属主显示 `conmon`，都是正常现象，#55） |
+| 鉴权负例 | 无凭据 / 前缀错 / 目标主机不在白名单 / 目标端口不在白名单 / 密码错（5 组，真客户端发起） | ✅ 一律 `Rejecting connection with not allowed destination: RemoteAddr{…}` |
+| 判定顺序 | 裸 curl `/cdn-socket-stream`、`/whatever`、`/cdn-socket-stream/events`、`/cdn-socket-stream/a/b/events`、`/v1/events` | ✅ 缺 `events` 后缀 → `bad upgrade request`；有后缀 → `error while decoding jwt`（JWT 在 restrictions 之前），§3.7 结论成立，同时说明**白名单没法只靠 curl 验**（#49） |
+| 白名单放行 | 正例打通 | ✅ 服务端 `Tunnel accepted due to matched restriction: auth-tunnels`，`curl 127.0.0.1:18080` 返回 200 / 3719 字节 |
+| 热加载 | 改 `/etc/wstunnel/restrictions.yaml`（只读 bind mount）不重启服务端 | ✅ 新规则立即生效 ⇒ `:ro` + inotify 的组合成立（关闭 #30 的"未实测"；SELinux 分支仍未测，#53） |
+| 停止 | `systemctl --user stop` ×2 | ⚠ 容器和 `%t/%n.ctr-id` 都被 `ExecStop`/`ExecStopPost` 清干净（重复 stop 幂等），但 unit 落 `failed/exit-code`、`ExecMainStatus=143`（#51） |
+| 自愈 | `kill -TERM` / `podman kill -s KILL` 容器主进程 | ✅ `Restart=always` + `RestartSec=5` 生效：`NRestarts` +1、~10s 内回 `active`、隧道自动重建 |
+| 卡死 | `SIGSTOP` 容器主进程后 stop | ✅ `podman stop -t 10` 到点 SIGKILL（`ExecMainStatus=137`），`ExecStopPost` 仍清干净，`TimeoutStopSec=70` 未被触达，unit 不挂死 |
+| 独立性 | 只停服务端 | ✅ 客户端容器与 6 个 `-L` 监听不受影响；服务端回来后首个探测（≤2s）就恢复 200 |
+| `-P` vs `-e` | 三组对照：只给 `-e` / `-P` 对 + `-e` 错 / `-P` 错 + `-e` 对 | ✅ 命令行 `-P` 赢（#44 与 §7.9 的"未在真二进制上验证"正式关闭） |
+| 开机自启 | enable 链路四要素 | ✅ `default.target.wants` 符号链接 + 依赖树含两单元 + `user@0.service` active + `Linger`（实测前正是 `no`，恰好复现 §3.2 那个坑；`enable-linger` 后变 `yes`） |
+
+**新增结论（#47 起）**
+
+| # | 级别 | 发现 | 处理 |
+|---|---|---|---|
+| 47 | **高** | 客户端容器的 TLS 根只有**镜像内系统信任库**，`--tls-verify-certificate` 遇自签/私有 CA 直接握手失败，且**上游没有客户端侧自定义 CA 参数**。真机症状是静默失败：服务端 `error while accepting TLS connection received fatal alert: UnknownCA`，客户端 INFO 里只有反复的 `Doing TLS handshake` + 0.6/0.8/1.6/3.2/6.4s 指数退避，`systemctl is-active` 与 `podman ps` 全程正常 | 客户端单元加一行 `-v /etc/wstunnel/ca.pem:/etc/ssl/certs/wstunnel-ca.pem:ro`（配方与三种取舍见 §4.3 第 5 条），unit 注释与 §6.5 同步 |
+| 48 | **高** | 客户端**按需建连**：单元起来后日志只有 6 行 `Starting TCP server listening cnx on 0.0.0.0:<port>`，没有任何"已连上服务端"的成功行；首次流量到来才发起 wss 握手 | 部署收工前必须主动打一次流量：§4.2 补了 `nc -z` + `curl` 两步、§6.4 补了服务端 `matched restriction` 的回查。这条与 #47 叠加是最坏组合——两侧指标全绿、实际一条隧道都没通过 |
+| 49 | 中 | 白名单**不能用裸 curl 单独验证**：JWT 解析（`server.rs:129`）早于 restrictions 判定（`server.rs:141`），任何 curl 都在 400 处就结束；4 条路径探测只证明了 §3.7 的判定顺序 | §5 的 5 组负例改成"用真客户端发起"，§6.4 给出可复制命令 |
+| 50 | 信息 | `-P` 优先于 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 在真二进制上三组对照通过 | #44、§7.9 的"推导"升级为"实测" |
+| 51 | 中 | `systemctl --user stop` 后 unit 是 `failed`（`Result=exit-code`、`ExecMainStatus=143`）而非 `inactive`：`ENTRYPOINT=dumb-init` 打印 `Child exited with status 143` 并把退出码原样交给 systemd | §3.5 增补 `SuccessExitStatus=143`（真机验证：加完 stop → `inactive`/`success`，`Restart=always` 照常自愈）。运维判活别只看 `is-active`，配合 `-p Result -p ExecMainStatus` 一起看（§6.4） |
+| 52 | 信息 | `ExecStop`/`ExecStopPost` 靠 `--cidfile=%t/%n.ctr-id` 精确定位本单元容器：两单元互不牵连（容器名分别 `wstunnel`/`wstunnel-client`），单停一侧另一个不受影响，重复 stop 幂等（`--ignore` 生效） | 与 §3.5 的 unit 改名迁移互相印证：`%n` 变了旧 cidfile 成孤儿，需手工清 |
+| 53 | 中 | 只读 bind mount 上的 inotify 热加载在 Debian 13 + podman 5.4.2 上实测有效（追加规则 → 未重启即放行）；**SELinux enforcing 分支仍未实测**，#31 的 `semanage fcontext` 固化照做 | §3.3 该项从"未实测"改为"已实测 + SELinux 例外" |
+| 54 | 信息 | 系统 CA 是**进程内快照 + 每小时整体重载**：`wstunnel-cli/src/main.rs:108` 调 `SystemCaReloader::start(None)`，`tunnel/ca_reloader.rs:22-38` 的 interval 缺省 3600s；根 store 组装在 `protocols/tls/server.rs:116` + `tunnel/ca_reloader.rs:59-72`（`rustls-native-certs 0.8.5`） | §4.3 第 5 条写明"换 CA 直接 restart 客户端"，不要等自刷；§6.5 加一行速查 |
+| 55 | 低 | 验收脚本自身的两个坑：① `podman ps --filter name=wstunnel` 是**子串**匹配，连带命中 `wstunnel-client`，用它判"服务端容器已清干净"必然误报（要 `--filter name='^wstunnel$'`）② rootless + `--network host` 下 `ss -lntp` 的属主进程显示 `conmon` 而不是 `wstunnel`，`podman ps` 也没有 `.NetworkMode` 字段可看 | §6.4 命令改用锚定正则并注明看监听的正确姿势 |
+
+**实测过的"未实测"清单**（原列表在 §7.9 之后）：真实握手与端到端转发、`Type=notify` + `--sdnotify=conmon` 的实际时序、`--network host` 下的 6 条 `-L` 监听、只读 bind mount 上的 inotify 热加载、`-P` 与环境变量的优先级、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的可见范围（确认：明文可见，#36 成立）、`ExecStop`/`ExecStopPost` 与 cidfile 清理、`Restart=always`/`RestartSec=5`/`TimeoutStopSec=70` 三级停止与自愈、`loginctl enable-linger` 的效果、两个单元各自的 `systemd-analyze verify`。
+
+**仍未实测**：整机重启后的自启（四要素齐备，但本机是本次会话的宿主，`systemctl --user isolate default.target` 与 `loginctl terminate-user root` 都会把会话本身停掉，实测过依赖树确认 `session-60.scope` 不在 `default.target` 内 ⇒ 会自杀，留到上线时确认）；SELinux enforcing 下的 `,z`/`:Z` 与 filetrans 继承（#31）；`podman auto-update` + 固定 `:v11.1.0` 的重建流程；WebTransport（`wts://`，需要 UDP）；`SSL_CERT_FILE`/`SSL_CERT_DIR` 形态（本轮用的是"往 `/etc/ssl/certs/` 里塞一个 pem"这条已验证路径）；Quadlet 形态（§4.6）。
+
+**本轮之前已完成的静态验证**（原「未在本机验证的项」段落末尾的内容，原样搬到这里保留）：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（当时仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素，真机上已连这两条都不报）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。历史条目（#19、#30、#31、#44 以及 §7.8/§7.9 的推导）保留当时原文与推导过程、只加指向不改写历史；§5 全量用例仍建议上线时在真实目标侧再跑一遍。
+
 
 ## 8. 附件（本目录）
 
