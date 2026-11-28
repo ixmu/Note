@@ -14,7 +14,7 @@
 #     ⇒ 每条规则起个可读的名字，排查时能直接看出是哪条放行的
 #
 # 双重暗号（缺一即拒）
-#   1) 路径前缀  my-secret-path          客户端 -P / WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX
+#   1) 路径前缀  cdn-socket-stream          客户端 -P / WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX
 #   2) Basic     wstunnel:Wstunnel-2026  base64 = d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==
 #
 # 未声明 !ReverseTunnel ⇒ 反向隧道(-R) 一律禁止。
@@ -27,7 +27,7 @@ restrictions:
   - name: "auth-tunnels"
     description: "路径前缀 + Basic 双鉴权，仅放行 README 映射表中的 6 条目标"
     match:
-      - !PathPrefix "^my-secret-path$"
+      - !PathPrefix "^cdn-socket-stream$"
       - !Authorization "^[Bb]asic +d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==$"
     allow:
       # ── 目标是域名的：只看 host 正则（cidr 此处不参与判定，保留默认值仅为可读）──
