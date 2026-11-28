@@ -1,10 +1,21 @@
+# wstunnel 客户端 systemd unit · 基准 wstunnel v11.1.0
+# 安装: cp wstunnel-client.service /etc/systemd/system/ && systemctl daemon-reload
+# 自检: systemd-analyze verify /etc/systemd/system/wstunnel-client.service
 [Unit]
-Description=wstunnel client
+Description=wstunnel client (6 条 tcp 隧道 → wss 服务端白名单)
+Documentation=https://github.com/erebe/wstunnel#readme
 After=network-online.target
 Wants=network-online.target
+# 断线/配置错误时保持无限重连（RestartSec 已拉长，不会刷爆日志）
+StartLimitIntervalSec=0
 
 [Service]
+Type=simple
+Environment=RUST_LOG=INFO
+# 暗号1：路径前缀。缺省值是 v1，不设置会被服务端 restrictions 直接拒掉
 Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=my-secret-path
+# 暗号2：Basic 认证。⚠ 写在 ExecStart 里意味着任何本机用户都能用 ps / systemctl show 看到它
+#   多用户机器请改用下面「凭据落盘」方案（见 README §4.2）
 ExecStart=/usr/local/bin/wstunnel client \
   --tls-verify-certificate \
   --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
@@ -15,9 +26,40 @@ ExecStart=/usr/local/bin/wstunnel client \
   -L tcp://0.0.0.0:5002:us.rapidproxy.io:5001 \
   -L tcp://0.0.0.0:55689:45.149.172.51:55688 \
   wss://tunnel.example.com:55443
+# ── 可选开关 ──
+# 凭据落盘（免 argv 泄密；文件每请求重读，可热换密码；与 --http-upgrade-credentials 二选一，文件优先）：
+#   把 --http-upgrade-credentials 那行换成下面这行，并 chmod 600 /etc/wstunnel/auth.txt
+#   文件内容一行： Authorization: Basic d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==
+#   --http-headers-file /etc/wstunnel/auth.txt
+# 进阶（systemd ≥247）：LoadCredential=auth:/etc/wstunnel/auth.txt，路径取 $CREDENTIALS_DIRECTORY/auth.txt
+#   （ExecStart 不展开变量，需 /bin/sh -c 包一层；详见 README §4.2）
+# 中间设备回收空闲连接、隧道频繁重连时（默认 30s）：
+#   --websocket-ping-frequency 15s
+# 本机 IPv6 有问题、连接偏慢时：
+#   --dns-resolver-prefer-ipv4
+# ⚠ 0.0.0.0 绑定的这些本地端口自身不带任何鉴权，能连到端口=能借隧道访问目标。
+#   只给内网用请改成具体网卡 IP，例如 -L tcp://192.168.1.10:2223:gw.pyproxy.com:2222
 Restart=always
-RestartSec=3
+RestartSec=5
+LimitNOFILE=65535
+# ── 权限与安全加固 ──
+# 客户端所有本地端口(2223/10000/10001/8101/5002/55689)都是非特权端口，可直接降权
+#User=wstunnel
+#Group=wstunnel
 NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# 同服务端：ProtectSystem=strict 只禁写不禁读，auth.txt 等凭据文件能正常读取，
+# 无需 ReadWritePaths。注意 ReadWritePaths 指向不存在的目录会让服务启动失败，
+# 需要时务必用 ! 前缀标记为可选：ReadWritePaths=!/etc/wstunnel
 
 [Install]
 WantedBy=multi-user.target

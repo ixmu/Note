@@ -1,24 +1,116 @@
-# wstunnel server restrictions (whitelist, hot-reloaded on change)
-# Nothing is allowed unless it matches a rule below.
+# wstunnel 服务端白名单授权配置（server 端 --restrict-config 指向本文件）
+# 语法基准: wstunnel v11.1.0 · 上游参考 restrictions.yaml
+#   https://github.com/erebe/wstunnel/blob/main/restrictions.yaml
+#
+# 判定语义（源码 wstunnel/src/tunnel/server/utils.rs :: AllowTunnelConfig::is_allowed）
+#   · 默认全拒绝：未命中任何 restriction 的升级请求 → HTTP 400 Bad Request（不是 403）
+#   · match 内是逻辑与(AND)：路径前缀与 Authorization 必须同时命中
+#   · allow  内是逻辑或(OR)：命中任一 !Tunnel 即放行；多个 restriction 之间按顺序取第一条命中
+#   · port / protocol 留空或不写 = 该维度不限制（所以一定要写，否则等于放开）
+#   · port 支持范围写法 "8080..8089"；上游按字符串解析，建议统一加引号
+#   · 目标是域名时只匹配 host 正则；目标是字面 IP 时只匹配 cidr（两者不会同时生效）
+#   · 本文件保存即热加载，改端口/密码不需要重启服务
+#   · 放行时 journalctl 会打印 "Tunnel accepted due to matched restriction: <name>"
+#     ⇒ 每条规则起个可读的名字，排查时能直接看出是哪条放行的
+#
+# 双重暗号（缺一即拒）
+#   1) 路径前缀  my-secret-path          客户端 -P / WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX
+#   2) Basic     wstunnel:Wstunnel-2026  base64 = d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==
+#
+# 未声明 !ReverseTunnel ⇒ 反向隧道(-R) 一律禁止。
+#
+# ⚠ 本次审计的行为变化：旧配置只有「端口白名单 + host:^.*$ + cidr:0/0」，
+#   即任何拿到双暗号的客户端都能把这 6 个端口转给任意主机（SSRF 面）。
+#   现在按 README 的映射表逐条锁死目标；如需退回旧行为，用文件末尾的「宽松回退」替换 allow 段。
+
 restrictions:
   - name: "auth-tunnels"
-    description: "Path prefix + Basic auth required; forward tunnels only to whitelisted ports"
+    description: "路径前缀 + Basic 双鉴权，仅放行 README 映射表中的 6 条目标"
     match:
       - !PathPrefix "^my-secret-path$"
       - !Authorization "^[Bb]asic +d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==$"
     allow:
+      # ── 目标是域名的：只看 host 正则（cidr 此处不参与判定，保留默认值仅为可读）──
+      # 本地 2223 → gw.pyproxy.com:2222
       - !Tunnel
         protocol:
           - Tcp
           - Udp
         port:
-          - 2222
-          - 5001
-          - 8100
-          - 9999
-          - 10000
-          - 55688
-        host: "^.*$"
+          - "2222"
+        host: "^gw\\.pyproxy\\.com$"
         cidr:
-          - 0.0.0.0/0
-          - ::/0
+          - "0.0.0.0/0"
+          - "::/0"
+      # 本地 10001 → hk.rp.linkup.onl:10000
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - "10000"
+        host: "^hk\\.rp\\.linkup\\.onl$"
+        cidr:
+          - "0.0.0.0/0"
+          - "::/0"
+      # 本地 8101 → proxy.momoproxy.com:8100
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - "8100"
+        host: "^proxy\\.momoproxy\\.com$"
+        cidr:
+          - "0.0.0.0/0"
+          - "::/0"
+      # 本地 5002 → us.rapidproxy.io:5001
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - "5001"
+        host: "^us\\.rapidproxy\\.io$"
+        cidr:
+          - "0.0.0.0/0"
+          - "::/0"
+      # ── 目标是字面 IP 的：只看 cidr，host 正则不参与（写法对齐上游生成逻辑 "^$"）──
+      # 本地 10000 → 43.134.70.211:9999
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - "9999"
+        host: "^$"
+        cidr:
+          - "43.134.70.211/32"
+      # 本地 55689 → 45.149.172.51:55688
+      - !Tunnel
+        protocol:
+          - Tcp
+          - Udp
+        port:
+          - "55688"
+        host: "^$"
+        cidr:
+          - "45.149.172.51/32"
+
+# ── 宽松回退（需要旧行为时，用下面这段整体替换上面的 allow: 段）───────────────
+#    allow:
+#      - !Tunnel
+#        protocol:
+#          - Tcp
+#          - Udp
+#        port:
+#          - "2222"
+#          - "5001"
+#          - "8100"
+#          - "9999"
+#          - "10000"
+#          - "55688"
+#        host: "^.*$"
+#        cidr:
+#          - "0.0.0.0/0"
+#          - "::/0"

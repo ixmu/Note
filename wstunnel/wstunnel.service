@@ -1,17 +1,54 @@
+# wstunnel 服务端 systemd unit · 基准 wstunnel v11.1.0
+# 安装: cp wstunnel.service /etc/systemd/system/ && systemctl daemon-reload
+# 自检: systemd-analyze verify /etc/systemd/system/wstunnel.service
 [Unit]
-Description=wstunnel server
+Description=wstunnel server (wss + restrictions.yaml 白名单)
+Documentation=https://github.com/erebe/wstunnel#readme
 After=network-online.target
 Wants=network-online.target
+# 证书/私钥/restrictions 缺失时保持无限重试：文件补齐即自愈（v11 三类文件都热加载）
+# 若希望"连续失败就停在 failed 状态便于告警"，改成下面两行：
+#   StartLimitIntervalSec=60
+#   StartLimitBurst=10
+StartLimitIntervalSec=0
 
 [Service]
+Type=simple
+Environment=RUST_LOG=INFO
 ExecStart=/usr/local/bin/wstunnel server \
   --tls-certificate /opt/wstunnel/fullchain.pem \
   --tls-private-key /opt/wstunnel/privkey.pem \
   --restrict-config /opt/wstunnel/restrictions.yaml \
   wss://0.0.0.0:55443
+# 目标地址里有域名时，隧道连接由服务端解析。服务器解析不了域名会导致「IP 隧道正常、域名隧道不通」：
+#   按需追加 --dns-resolver dns://223.5.5.5（或 dns+tls://8.8.8.8?sni=dns.google 走 DoT；system://0.0.0.0 用系统 resolver）
+# 想让服务端在更早、更便宜地挡掉错误前缀（与 restrictions 里的 !PathPrefix 叠加，双保险）：
+#   追加 -r my-secret-path
+# 需要同时支持 HTTP/3(QUIC) 客户端：把 URL 换成 wts://0.0.0.0:55443 或追加 --enable-webtransport
+#   ⚠ 那样会额外开 UDP/55443，防火墙与容器端口映射都要一起放行
 Restart=always
-RestartSec=3
+RestartSec=5
+LimitNOFILE=65535
+# ── 权限与安全加固 ──
+# 55443 是非特权端口，理论上可降权运行；启用下面两行时请把 privkey.pem 属组
+# 改为 wstunnel 并设 640，否则服务读不到私钥会一直重启
+#User=wstunnel
+#Group=wstunnel
 NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# ProtectSystem=strict 会把 /usr、/etc、/opt 等挂成只读，但【读】不受影响：
+# 证书、私钥、restrictions.yaml 都只需读取（热加载走 inotify），所以无需 ReadWritePaths。
+# 将来若要让 wstunnel 写文件（如 unix socket、日志），必须在此声明，且路径不存在会导致启动失败：
+#   ReadWritePaths=!/opt/wstunnel     # 前缀 ! = 路径缺失时忽略而不是报错
 
 [Install]
 WantedBy=multi-user.target
