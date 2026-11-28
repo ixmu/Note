@@ -49,7 +49,7 @@
 |---|---|---|
 | 服务端口 | `55443/tcp` | 非标端口，需在防火墙放行 |
 | 协议 | `wss://`（WebSocket over TLS） | 证书与端口无关，只对域名生效 |
-| 路径前缀（暗号1） | `cdn-socket-stream` | 客户端 `-P` / `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`；**不设时默认前缀是 `v1`，会被 restrictions 直接拒**；容器形态必须用 `-e` 传入（§4.3） |
+| 路径前缀（暗号1） | `cdn-socket-stream` | 客户端 `-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` **同义，写一个就够**（本方案只写 `-e`，不再重复 `-P`）；线上请求路径固定为 `/{前缀}/events`；**两者都不给时默认前缀退回 `v1`，会被 restrictions 直接拒**；容器形态必须用 `-e` 传入（§4.3、§3.7） |
 | Basic 账号（暗号2） | `wstunnel:Wstunnel-2026` | base64: `d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==`（已用 `printf … \| base64` 复核一致） |
 | 配置根目录 | `/etc/wstunnel/`（**服务端专用**） | 证书 + `restrictions.yaml`；客户端不挂宿主机文件，凭据写在 unit 里（§4.1）。服务端历史版本用 `/opt/wstunnel`，已统一，迁移见 §3.1 |
 | 证书文件 | `/etc/wstunnel/fullchain.pem` + `privkey.pem` | 容器内同路径（bind mount）；自动热加载 |
@@ -195,6 +195,13 @@ systemctl --user daemon-reload && systemctl --user enable --now container-wstunn
 - `port`、`protocol` **留空或不写 = 该维度完全不限制**（不是"禁止"）；`port` 支持范围 `"8080..8089"`，源码按字符串解析，建议统一加引号。
 - **`host` 与 `cidr` 不会同时生效**：请求目标是域名时只看 `host` 正则；目标是字面 IP 时只看 `cidr`。⇒ 域名目标即使解析到 `127.0.0.1` 也能放行（残余风险见 §5.1）。
 - 文件**保存即热加载**（bind mount 场景同样有效），调整端口/密码不需要重启服务或重建容器。
+- **`!PathPrefix` 比对的不是完整 URL，而是升级 URI 的首段**（已按源码核对，下同）：
+  - 客户端发起升级时 URI 固定拼成 `/{前缀}/events`（`src/tunnel/transport/websocket.rs:267`；http2 `transport/http2.rs:163`、WebTransport `transport/webtransport/client.rs:33` 同一格式）。本方案线上即 `GET /cdn-socket-stream/events`。
+  - 服务端 `extract_path_prefix()`（`src/tunnel/server/utils.rs:71-82`）剥掉首斜杠后取**第一个 `/` 之前**的那一段作为待匹配串，并要求剩余部分以 `events` 结尾：`/cdn-socket-stream/events`、`/cdn-socket-stream/a/events`、`/cdn-socket-stream/a/b/events` 都提取到 `cdn-socket-stream`（上游单测 `utils.rs:606-631` 已覆盖）；`/cdn-socket-stream`、`/cdn-socket-stream/events/`、`/cdn-socket-streamevents` 一律 `BadUpgradeRequest` → **400**。
+  - ⇒ 正则对象**不含 `/events`**，所以 `restrictions.yaml` 里的 `^cdn-socket-stream$` 全锚写法是正确且必要的；写成 `^cdn-socket-stream/events$` 永不命中。中间那段 `a/b` 可被客户端自由填充（CDN/反代路径改写时注意别把它吃掉）。
+  - 匹配点在 `utils.rs:119`（`MatchConfig::PathPrefix(path) => path.is_match(path_prefix)`），正则用 Rust `regex` crate，默认非锚定搜索，靠 `^…$` 收紧。
+- 服务端 `-r` / `--restrict-http-upgrade-path-prefix` 比对的是**剥离后的同一个首段**，且是**精确字符串相等**而非正则（`src/tunnel/server/server.rs:115`、`120-127`），命中失败同样回 400，日志 `Client requested upgrade path '<x>' does not match upgrade path restriction …`。它比 restrictions 更早短路，可当作第二道暗号校验。
+- 客户端如改用 mTLS（`--tls-certificate`）且**没给** `-P`/`-e`，前缀会被自动改成客户端证书的 CN（`src/lib.rs:72-81`），此时 CN 必须等于 `cdn-socket-stream`，否则 restrictions 不命中。
 
 ## 4. 客户端部署（Podman 容器）
 
@@ -281,7 +288,7 @@ ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # 6 个本地端口已�
 
 | 参数 | 环境变量 | 备注 |
 |---|---|---|
-| `-P` 路径前缀 | `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` | 默认 `v1`；容器里用 `podman run -e` 传（§4.3 第 1 条） |
+| `-P` / `--http-upgrade-path-prefix` 路径前缀 | `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` | **两个入口等价，写一个即可**：本单元只写 `-e`，命令行不再重复 `-P`；同时给时命令行优先（clap 4.6 的 `env=` 仅在命令行缺省时取值，`src/config.rs:154-161`）。默认 `v1`；容器里必须用 `podman run -e` 传（§4.3 第 1 条、§3.7 首段剥离规则） |
 | `-p` http 代理 | `HTTP_PROXY` | 客户端在代理后面出网时用 |
 | 代理账号/密码 | `WSTUNNEL_HTTP_PROXY_LOGIN` / `WSTUNNEL_HTTP_PROXY_PASSWORD` | 会覆盖 `-p` 里的账号 |
 | `--log-lvl` 日志级别 | `RUST_LOG` | TRACE/DEBUG/INFO/WARN/ERROR/OFF；镜像内置 `INFO`，调试用 `-e RUST_LOG=DEBUG` |
@@ -373,8 +380,11 @@ wstunnel client --tls-verify-certificate \
   --http-upgrade-credentials 'wstunnel:Wstunnel-2026' -P cdn-socket-stream \
   -L tcp://3333:evil.example.com:2222 wss://<域名>:55443
 
-# ⑤ 只看端口/TLS 是否通（注意：curl 无 JWT，必然被拒，返回 400 属正常）
+# ⑤ 只看端口/TLS 是否通（curl 必然拿 400：它既没有 JWT 也没有正确的升级路径，
+#    两条 curl 都返回 400，区别只在服务端日志——前者是 bad upgrade request（缺 /events 后缀），
+#    后者才是走到鉴权阶段后因无 Sec-WebSocket-Protocol 里的 JWT 被拒，见 §3.7）
 curl -sk -o /dev/null -w '%{http_code}\n' https://<域名>:55443/cdn-socket-stream
+curl -sk -o /dev/null -w '%{http_code}\n' https://<域名>:55443/cdn-socket-stream/events
 
 # ⑥ 前缀暗号是否真的生效 → 应被拒
 wstunnel client --tls-verify-certificate \
@@ -390,7 +400,7 @@ podman run --rm -it --network host \
   -L tcp://3333:gw.pyproxy.com:2222 wss://<域名>:55443
 ```
 
-①通、②③④⑥拒 = TLS + 双暗号 + `host:port` 白名单全部生效。判定顺序是先解 JWT 再查 restrictions，所以裸 `curl`（无 `Sec-WebSocket-Protocol`）拿不到"白名单已放行"的结论，白名单必须用真客户端测。
+①通、②③④⑥拒 = TLS + 双暗号 + `host:port` 白名单全部生效。判定顺序是「先剥离并校验升级路径 → 再解 JWT → 最后查 restrictions」（`server.rs:115` 提取路径 → `120-127` `-r` 精确比对 → `129` 解 JWT → `141-146` 查 restrictions），所以裸 `curl`（无 `Sec-WebSocket-Protocol`）拿不到"白名单已放行"的结论，白名单必须用真客户端测。
 
 ### 5.1 残余风险：域名解析不受 cidr 约束
 
@@ -580,7 +590,17 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 | 38 | 中 | 写在 unit 里的凭据失去热加载：`--http-headers-file` 是「每请求重读」，命令行值是启动时读入 ⇒ 换密码必须 `daemon-reload` + `restart`，全隧道瞬断一次 | §6.1 步骤③改写，并在 §6.5 加两条速查 |
 | 39 | 信息 | 换来的收益：客户端状态收敛成一个 600 的 unit 文件，无需目录、属主、SELinux 标签与挂载顺序；裸机与容器两种形态写法一致 | 保留文件方案的全部要点（§3.3、§4.1 diff），随时可切回 |
 
-**未在本机验证的项**（本仓库所在容器无 podman、无 systemd 用户实例、无 `wstunnel` 二进制）：真实握手与转发、podman 卷权限与 SELinux 标签行为（含 `/etc` 下 `:z` 重标与 filetrans 继承，§7.6 #31）、只读 bind mount 上的 inotify 热加载、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的实际可见范围、`--network host` 下的端口监听、`podman auto-update` 重建流程、`%d` 说明符与 Quadlet `[Install]` 的版本相关行为。上线前按 §5 全量跑一遍。已完成的本地验证：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。
+### 7.8 源码取证：`!PathPrefix` 与客户端 `-P` 的关系（2026-11-28）
+
+结论先行：**服务端 `restrictions.yaml` 里的 `!PathPrefix` 只负责"校验"，不会反向告知客户端该发什么前缀**；客户端仍必须自己把前缀设成 `cdn-socket-stream`，只是本方案已通过 `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 等价传入，**命令行因此不需要再写 `-P`**（两者是同一配置的两条入口，同时出现时 `-P` 优先）。
+
+| # | 级别 | 发现（基准 v11.1.0 源码） | 处理 |
+|---|---|---|---|
+| 40 | 中 | 客户端不给 `-P` 也不给 `-e` 时前缀取默认常量 `v1`（`src/config.rs:9` `DEFAULT_CLIENT_UPGRADE_PATH_PREFIX = "v1"`，`src/config.rs:154-161` 绑定 `-P/--http-upgrade-path-prefix`），发出的升级 URI 为 `/v1/events`，提取出的首段 `v1` 不命中 `^cdn-socket-stream$` → **HTTP 400**，症状是"容器健康、进程不退出、所有隧道全 400" | §2、§4.3 第 1 条、§6.5 已写明；unit 内注释显式说明 `-e` 与 `-P` 等价，避免有人误以为服务端配了前缀客户端就可省 |
+| 41 | 信息 | `!PathPrefix` 正则的匹配对象是 `extract_path_prefix()` 剥离后的**首段**，不含 `/events` 后缀；`/x/events`、`/x/a/events`、`/x/a/b/events` 都提取为 `x`，缺 `events` 结尾直接 `BadUpgradeRequest`（`utils.rs:71-82` + 上游单测 `utils.rs:606-631`） | §3.7 新增"首段剥离"小节（含 file:line），`restrictions.yaml` 头注释同步线上请求路径与锚点写法说明 |
+| 42 | 信息 | `-r/--restrict-http-upgrade-path-prefix` 与 restrictions 之外的另一处前缀校验：比对同一首段，**精确相等**、非正则，且在 JWT 解析之前短路（`server.rs:115`、`120-127`）；另外 mTLS 下未显式给前缀时会自动采用客户端证书 CN（`lib.rs:72-81`） | §3.6/§3.7/§6.6 已有 `-r` 与 mTLS 提示，本轮补齐语义差异与 file:line |
+
+**未在本机验证的项**（本仓库所在容器无 podman、无 systemd 用户实例、无 `wstunnel` 二进制）：真实握手与转发、podman 卷权限与 SELinux 标签行为（含 `/etc` 下 `:z` 重标与 filetrans 继承，§7.6 #31）、只读 bind mount 上的 inotify 热加载、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的实际可见范围、`--network host` 下的端口监听、`podman auto-update` 重建流程、`%d` 说明符与 Quadlet `[Install]` 的版本相关行为、`-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 同时给出时命令行优先（依据 clap `env=` 仅在命令行缺省时取值的通用语义 + `config.rs:159` 的 `env=` 绑定推导，未在真二进制上跑对照实验）。上线前按 §5 全量跑一遍。已完成的本地验证：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。
 
 ## 8. 附件（本目录）
 

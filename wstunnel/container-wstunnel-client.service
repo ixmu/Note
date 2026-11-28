@@ -31,7 +31,9 @@ Restart=always
 RestartSec=5
 TimeoutStopSec=70
 # ⚠ 暗号1：[Service] 的 Environment= 不会进入容器，必须用 podman run -e 传
-#   （镜像 Dockerfile 已内置 ENV RUST_LOG=INFO，需要调试再显式覆盖）
+#   -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX 与命令行 -P 是同一配置的两条入口，写一个即可（同时给时 -P 优先），
+#   所以本文件不再重复写 -P；两个都不给会退回默认 v1 → 请求 /v1/events → 服务端 !PathPrefix 不命中 → 400
+#   （服务端 restrictions 只校验、不代客户端决定前缀；镜像 Dockerfile 已内置 ENV RUST_LOG=INFO，调试再显式覆盖）
 # ⚠ --network host：6 条 -L 的 0.0.0.0 监听直接落在宿主机上，省掉 6 行 -p 映射，
 #   也不受 rootless 端口转发只有 TCP 的限制。用 bridge 网络时请改成
 #   --network podmanv6 并逐条 -p 2223:2223 -p 10000:10000 -p 10001:10001 \
