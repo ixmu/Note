@@ -1,6 +1,11 @@
-
+# wstunnel 服务端 Podman 容器 systemd unit · 基准 wstunnel v11.1.0
+# 与 container-wstunnel-client.service 成对命名（container-wstunnel-{server,client}.service）
+# 注：容器名仍是 wstunnel，所以本文件不是 `podman generate systemd --name wstunnel` 的原样输出
+#     （那条命令给出的是 container-wstunnel.service）；想让生成器可复现就同步改 --name，见 README §3.5
+# 安装: install -Dm644 container-wstunnel-server.service ~/.config/systemd/user/
+# 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-server.service
 [Unit]
-Description=Podman container-wstunnel.service
+Description=Podman container-wstunnel-server.service
 Documentation=man:podman-generate-systemd(1)
 Wants=network-online.target
 After=network-online.target

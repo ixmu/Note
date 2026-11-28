@@ -1,0 +1,70 @@
+# wstunnel 客户端 Podman 容器 systemd unit · 基准 wstunnel v11.1.0
+# 形态与 container-wstunnel-server.service（服务端）成对，等同 podman generate systemd --name wstunnel-client --files 的输出
+# 安装: install -Dm644 container-wstunnel-client.service ~/.config/systemd/user/
+# 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-client.service
+[Unit]
+Description=Podman container-wstunnel-client.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=%t/containers
+# 暗号/证书/对端不可达期间保持无限重试（隧道场景要自愈）；
+# 想改成"失败即停便于告警"：StartLimitIntervalSec=60 + StartLimitBurst=10
+StartLimitIntervalSec=0
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+RestartSec=5
+TimeoutStopSec=70
+# ⚠ 暗号1：[Service] 的 Environment= 不会进入容器，必须用 podman run -e 传
+#   （镜像 Dockerfile 已内置 ENV RUST_LOG=INFO，需要调试再显式覆盖）
+# ⚠ --network host：6 条 -L 的 0.0.0.0 监听直接落在宿主机上，省掉 6 行 -p 映射，
+#   也不受 rootless 端口转发只有 TCP 的限制。用 bridge 网络时请改成
+#   --network podmanv6 并逐条 -p 2223:2223 -p 10000:10000 -p 10001:10001 \
+#   -p 8101:8101 -p 5002:5002 -p 55689:55689（-p 与 --network host 同时出现会被忽略/报错）
+# ⚠ --user 0:0：镜像是 USER app(uid 1000)，rootless 下它映射到的宿主机 uid 读不到 600 的
+#   auth.txt；--user 0:0 让容器内 root 即部署者本人，凭据文件保持 600 也能读
+# ⚠ ,z 后缀：SELinux enforcing 时 bind mount 需要安全标签（getenforce 确认；
+#   :z 共享标签，:Z 独占）。不用凭据落盘方案时可整行删掉 -v
+# ⚠ 凭据落盘（防 ps 泄密）：见 README §4.2；若改用 --http-upgrade-credentials
+#   则把 --http-headers-file 那行换掉，并删掉 -v 挂载
+ExecStart=/usr/bin/podman run \
+        --cidfile=%t/%n.ctr-id \
+        --cgroups=no-conmon \
+        --rm \
+        --sdnotify=conmon \
+        --replace \
+        -d \
+        --name wstunnel-client \
+        --label io.containers.autoupdate=registry \
+        --network host \
+        --user 0:0 \
+        -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream \
+        -v /etc/wstunnel:/etc/wstunnel:ro,z \
+        /home/app/wstunnel client \
+        --tls-verify-certificate \
+        --http-headers-file /etc/wstunnel/auth.txt \
+        -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 \
+        -L tcp://0.0.0.0:10001:hk.rp.linkup.onl:10000 \
+        -L tcp://0.0.0.0:10000:43.134.70.211:9999 \
+        -L tcp://0.0.0.0:8101:proxy.momoproxy.com:8100 \
+        -L tcp://0.0.0.0:5002:us.rapidproxy.io:5001 \
+        -L tcp://0.0.0.0:55689:45.149.172.51:55688 \
+        wss://tunnel.example.com:55443
+# 可选：中间设备回收空闲连接导致频繁重连时加 --websocket-ping-frequency 15s
+# 可选：本机 IPv6 异常、连接偏慢时加 --dns-resolver-prefer-ipv4
+# 可选：镜像未预拉取时首启会隐式 pull；要严格离线用 --pull=never
+# 可选：上 mTLS 时再挂客户端证书并加 --tls-certificate/--tls-private-key（同 :ro,z 处理）
+ExecStop=/usr/bin/podman stop \
+        --ignore -t 10 \
+        --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm \
+        -f \
+        --ignore -t 10 \
+        --cidfile=%t/%n.ctr-id
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=default.target
