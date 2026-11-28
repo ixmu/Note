@@ -8,6 +8,8 @@
 #   · !PathPrefix 比对的是升级 URI 的「首段」而非完整路径：客户端固定发 GET /<前缀>/events，
 #     服务端 extract_path_prefix() 只取第一段去匹配（源码 utils.rs:71-82 + 单测 606-631）。
 #     ⇒ 下面写 ^cdn-socket-stream$ 是对的（正则对象不含 /events）；写成 ^cdn-socket-stream/events$ 永不命中。
+#     ⇒ 客户端用多段前缀 -P a/b/c 时线上 URI 是 /a/b/c/events，仍只拿首段 a 去比对（实测 §7.11 B5），
+#       所以「多段前缀 + ^cdn-socket-stream$」这种组合是有效的，但 nginx 侧 location 必须覆盖整串 /a/b/c/。
 #     ⇒ 服务端这里只是「校验」，不会替客户端决定前缀：客户端仍必须自己带 -P（本方案）或
 #       WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX，否则前缀退回默认 v1（config.rs:9）→ 请求 /v1/events → 400
 #   · match 内是逻辑与(AND)：路径前缀与 Authorization 必须同时命中

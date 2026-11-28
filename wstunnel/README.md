@@ -2,8 +2,8 @@
 
 > 版本基准：**wstunnel v11.1.0**（Rust 版，已核对 = 上游 GitHub Releases 最新版）
 > 部署形态：**服务端与客户端都跑 Podman 容器**（`ghcr.io/erebe/wstunnel`，rootless 用户单元）
-> 首次整理 2026-11-22 · 审计修订 2026-11-28（同日六次跟进：服务端 → 容器、路径前缀改 `cdn-socket-stream`、客户端 → 容器、两端单元统一为 `container-wstunnel-{server,client}.service` 成对命名、配置目录统一到 `/etc/wstunnel`、客户端凭据直接写进 unit（不再用 `auth.txt`）、
-> 真机跑通两个单元的生命周期与端到端转发并补齐私有 CA 信任配方（§7.10））
+> 首次整理 2026-11-22 · 审计修订 2026-11-28（同日八次跟进：服务端 → 容器、路径前缀改 `cdn-socket-stream`、客户端 → 容器、两端单元统一为 `container-wstunnel-{server,client}.service` 成对命名、配置目录统一到 `/etc/wstunnel`、客户端凭据直接写进 unit（不再用 `auth.txt`）、
+> 真机跑通两个单元的生命周期与端到端转发并补齐私有 CA 信任配方（§7.10）、**ws + nginx 反代伪装形态全量实测**（§3.8 配置 / §6.7 路线 / §7.11 数据）
 > 特点：自有域名 + SSL 证书（wss）+ 双重鉴权（路径前缀 + Basic）+ 目标 `host:port` 白名单
 > 本文件原名 `wstunnel部署文档.md`，已重命名为 `README.md`，便于在 GitHub 上进入 `wstunnel/` 目录直接阅读。
 
@@ -19,6 +19,8 @@
 两个单元都是 `podman generate systemd` 风格（`ExecStart=podman run …`、`Type=notify` + `--sdnotify=conmon`、`WantedBy=default.target`），命名成对（`container-wstunnel-server` / `container-wstunnel-client`），全部操作按当前用户执行，不需要 `sudo`（`/opt`、`/etc` 的写入属主除外）。
 
 > ✅ 两个单元已在真机（Debian 13 + podman 5.4.2 + systemd 257）装起来跑通生命周期与端到端转发，实测记录与新增结论见 §7.10。
+>
+> ✅ 可选的 nginx 反代形态（形态 B：443 + 真站伪装）也已在本机用 `wstunnel 11.1.0 + nginx 1.31.10` 三容器全量实测，配置见 §3.8、路线取舍见 §6.7、数据与踩坑见 §7.11。
 >
 > 服务端单元原名 `container-wstunnel.service`，已 `git mv` 为 `container-wstunnel-server.service`（改名原因与代价见 §3.5、结论 #26–#27）。
 
@@ -44,6 +46,15 @@
  本地:55689 ──┘
 ```
 
+**形态 B（可选，配置见 §3.8）**：TLS 交给 nginx，wstunnel 只听回环的明文 `ws://`
+
+```
+[客户端] ── wss://域名:443 ──► [nginx 443：TLS 终结 + 真站 + 路径分流] ── ws://127.0.0.1:55443/<前缀>/events ──► [wstunnel 容器] ──► 目标 host:port
+                                 └ 探 /. → 200 真站页      └ 探 /<前缀>/events → 400（可用 error_page 换成站点 404 页）
+```
+
+双暗号与 `restrictions.yaml` 一字不改（两条暗号都在客户端↔nginx 的 TLS 之内）；对外只多出一个标准 443 和一座真站。
+⚠ 反代之前的链路看不到暗号，但**终结 TLS 的 nginx 自己看得到**：它的 `log_format` 里别写 `$http_authorization`，否则暗号2 明文落盘（实测 #61）。
 - 隧道的实际连接动作发生在**服务器侧**（含域名解析），客户端只负责把流量送进 wss 隧道。
 - 反向隧道（`-R`）当前策略为**禁止**：`restrictions.yaml` 里没有声明 `!ReverseTunnel`，源码里未列出的类型一律拒绝。
 - **鉴权模型要点（源码核实）**：客户端把「目标 host / port / 协议」打包成 JWT 放在 `Sec-WebSocket-Protocol: authorization.bearer.<jwt>` 里送给服务端，服务端用 `jsonwebtoken::dangerous::insecure_decode` **不验签**地解开。也就是说目标地址是客户端自己声明的，`restrictions.yaml` 是**唯一真正的强制点**——不要指望 JWT 本身起限制作用。
@@ -54,6 +65,7 @@
 |---|---|---|
 | 服务端口 | `55443/tcp` | 非标端口，需在防火墙放行 |
 | 协议 | `wss://`（WebSocket over TLS） | 证书与端口无关，只对域名生效 |
+| 对外端口（可选形态 B） | `443/tcp` | TLS 由 nginx 终结，wstunnel 改听 `ws://[::]:55443` 并只发布到回环；两条暗号与白名单不变（§3.8、实测 §7.11） |
 | 路径前缀（暗号1） | `cdn-socket-stream` | 客户端单元里写死命令行 `-P cdn-socket-stream`（也有等价环境变量 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`，但**只写一个**且 `-P` 优先，理由见 §4.3 第 1 条、§7.9 #43）；线上请求路径固定为 `/{前缀}/events`；**两个入口都不给时默认前缀退回 `v1`，会被 restrictions 直接拒（400）** |
 | Basic 账号（暗号2） | `wstunnel:Wstunnel-2026` | base64: `d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==`（已用 `printf … \| base64` 复核一致） |
 | 配置根目录 | `/etc/wstunnel/`（**服务端专用**） | 证书 + `restrictions.yaml`；客户端不挂宿主机文件，凭据写在 unit 里（§4.1）。服务端历史版本用 `/opt/wstunnel`，已统一，迁移见 §3.1 |
@@ -216,6 +228,60 @@ systemctl --user daemon-reload && systemctl --user enable --now container-wstunn
   - 匹配点在 `utils.rs:119`（`MatchConfig::PathPrefix(path) => path.is_match(path_prefix)`），正则用 Rust `regex` crate，默认非锚定搜索，靠 `^…$` 收紧。
 - 服务端 `-r` / `--restrict-http-upgrade-path-prefix` 比对的是**剥离后的同一个首段**，且是**精确字符串相等**而非正则（`src/tunnel/server/server.rs:115`、`120-127`），命中失败同样回 400，日志 `Client requested upgrade path '<x>' does not match upgrade path restriction …`。它比 restrictions 更早短路，可当作第二道暗号校验。
 - 客户端如改用 mTLS（`--tls-certificate`）且**没给** `-P`/`-e`，前缀会被自动改成客户端证书的 CN（`src/lib.rs:72-81`），此时 CN 必须等于 `cdn-socket-stream`，否则 restrictions 不命中。
+
+### 3.8 可选形态 B：nginx 反代（443 + 真站伪装）
+
+§3.1–§3.5 记作**形态 A**：wstunnel 自持 TLS，对外直接暴露 `wss://域名:55443`。形态 B 把 TLS 交给 nginx，wstunnel 退化成只听回环的明文 `ws://`，对外只剩标准 443 和一座真站在跑的网站。
+依据：上游 discussion [#571](https://github.com/erebe/wstunnel/discussions/571)（提问者 ixmu、作答者 MikeFTV）→ 本机 `wstunnel 11.1.0 + nginx 1.31.10` 逐条复测，数据与踩坑见 §7.11，是否值得上见 §6.7。
+
+**改动面（其余一律不动）**
+
+| 位置 | 形态 A（现网） | 形态 B（反代） |
+|---|---|---|
+| 服务端子命令 | `wss://[::]:55443` + `--tls-certificate/--tls-private-key` | `ws://[::]:55443`，两个 TLS 参数删掉（证书归 nginx） |
+| 端口发布 | `-p 55443:55443`，防火墙放行 55443 | `-p 127.0.0.1:55443:55443`（nginx 同机；nginx 也在容器里就同网络直连容器 IP），防火墙只放 443 |
+| 客户端 URL | `wss://tunnel.example.com:55443` | `wss://tunnel.example.com`（443 可省略） |
+| `restrictions.yaml` | 双暗号 + `host:port` 白名单 | **一字不改**——两条暗号都在客户端↔nginx 的 TLS 之内；但 TLS 终结点（nginx）能看到明文，日志别记 `$http_authorization`（实测 #61） |
+| 客户端 CA | 自签/私有 CA 时要挂 `ca.pem`（§4.3 第 5 条） | 信任的是 nginx 的证书；LE 等公共 CA 时镜像自带根，可以不挂 |
+| 服务端日志里的来源 IP | `peer=` 即客户端 | `peer=` 是 nginx，真实客户端在 `forwarded_for=`（wstunnel 解析 XFF，实测 §7.11 B4） |
+| `wts://`（WebTransport） | 可上（补 UDP 映射） | 本形态下不可用 |
+
+**nginx 片段**（`map` 进 `http{}`，其余进对外的 443 `server{}`）
+
+```nginx
+# http{} 层
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+# 对外的 443 server{} 层；location 必须等于客户端 -P 的前缀 + /
+location /cdn-socket-stream/ {
+    proxy_pass http://127.0.0.1:55443;      # ← 结尾不能带 URI，带斜杠会把前缀剥掉（实测 #56）
+    proxy_http_version 1.1;                 # ← 缺它必失败：nginx 默认 1.0，不转发 Upgrade/Connection
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host       $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # 别在这里 proxy_set_header Authorization ""，那等于把暗号2 抹了
+    proxy_read_timeout 1h;                  # 默认 60s 会掐空闲隧道（实测数据 #57）
+    proxy_send_timeout 1h;
+    proxy_buffering off;
+
+    # 可选：把上游的 400 换成站点自己的 404 页，堵掉文案泄露（实测 #60）
+    proxy_intercept_errors on;
+    error_page 400 404 502 /404.html;       # 要连状态码一起改成 404：error_page 400 =404 /404.html;
+}
+```
+
+**四条实测前提**
+
+1. **`proxy_pass` 结尾不能带 URI**。`proxy_pass http://127.0.0.1:55443/;`（多个斜杠）会让 nginx 用 location 前缀做替换，`/cdn-socket-stream/events` 被改写成 `/events`，服务端回 `Rejecting connection with bad upgrade request: /events` → 400（实测 #56）。
+2. **`location` 必须覆盖 `/<前缀>/`**（多段前缀 `-P a/b/c` 同理，实测 B5）。不对齐时 nginx 用自家站点应答，客户端看到的是 `Invalid status code: 404` 而不是暗号错时的 400，很容易查错方向（实测 #63）。
+3. **空闲保活取决于 `proxy_read_timeout`，心跳只是兜底**。同一根隧道（同一条 TCP 连接上连发两包）实测：`read_timeout=5s` 下 `--websocket-ping-frequency 0` 与 `15` 都在 `rt=5.004s` 被掐（第二包只回半截 + Broken pipe），只有 `ping=2s`（周期 < 超时值）活到 `rt=9.012s` 且第二包完整；`read_timeout=1h` 下即便 `ping=0`，静默 30s 后同一条隧道照用。⇒ 直接写 `1h`，别靠调心跳（实测 #57）。
+4. **`https://`（h2 传输）不能过这个反代**，且失败是静默的：`curl` 本地端口 `code=000`，nginx 访问日志与错误日志各 0 条，wstunnel 客户端也不报错——比形态 A 的 400 难查得多（实测 #58）。反代形态一律 `wss://`。
+
+另外两点：
+
+- **同端口跑真站不需要特殊配置**：客户端 TLS 的 ALPN 只发 `http/1.1`，与 `http2 on` 天然不冲突。实测同一 443 上，浏览器侧 `HTTP/2 200`、隧道侧 `status=101 proto=HTTP/1.1` 各走各的（A8/B3）。
+- **想让 wstunnel 继续自持 TLS**（反代只做转发）就把上游改成 `proxy_pass https://127.0.0.1:55443; proxy_ssl_server_name on;`，此时 nginx 不需要服务端证书但会校验上游证书（自签需 `proxy_ssl_trusted_certificate`）。这条是 discussion #571 给的第二个方案，**本机未实测**，收益（少一次 TLS 终结）也有限。
 
 ## 4. 客户端部署（Podman 容器）
 
@@ -555,6 +621,11 @@ journalctl --user -u container-wstunnel-{server,client}.service --since -1h -o c
 | 扫描器不停连 | 只拦到 HTTP 层，属正常 | 55443 非标端口 + 双暗号 + host 白名单已足够；要更强可上 mTLS |
 | 裸机单元启动即失败并提示挂载错误 | `ReadWritePaths` 指向不存在的目录 | 建目录或用 `ReadWritePaths=!/path`（仅 §3.6/§4.7 场景） |
 | 上了 `wts://` 后 10s 超时 | QUIC 需要 UDP 端到端可达 | `--enable-webtransport` + `-p 55443:55443/udp` + 放行 UDP；`--http-proxy`、`--tls-sni-disable`、`--tls-ech-enable` 与 WebTransport 不兼容 |
+| **上了反代后所有隧道都 400**，服务端日志 `bad upgrade request: /events` | `proxy_pass` 结尾带了 URI，nginx 把 `/<前缀>/events` 改写成了 `/events` | 去掉结尾的 `/`（§3.8 前提①，实测 #56） |
+| 上了反代后客户端报 `Invalid status code: **404**`（不是 400） | nginx 没匹配到 `location /<前缀>/`，请求被自家站点接走 | location 与 `-P` 一字对齐（§3.8 前提②，实测 #63） |
+| 上了反代后隧道每隔约 60s 准时断一次 | `proxy_read_timeout` 默认 60s，空闲即回收；心跳救不了（周期必须小于超时值） | 写 `proxy_read_timeout 1h`（§3.8 前提③，实测 #57） |
+| 反代下客户端一声不响、本地端口 `code=000`、nginx 两条日志全无 | 用了 `https://`（h2 传输），反代上游只讲 HTTP/1.1 | 反代形态一律 `wss://`（§3.8 前提④，实测 #58） |
+| 反代后服务端日志里 `peer=` 全是 nginx 的 IP | 连接确实是 nginx 建的 | 看同一条日志的 `forwarded_for=`，那是 XFF 里的真实客户端（实测 #59） |
 
 ### 6.6 安全升级路线
 
@@ -563,6 +634,35 @@ journalctl --user -u container-wstunnel-{server,client}.service --since -1h -o c
 | 当前 | TLS + 路径前缀 + Basic + `host:port` 白名单 | 本文档方案 |
 | 更高 | mTLS 双向证书 | 服务端 `--tls-client-ca-certs /etc/wstunnel/ca.pem`，客户端 `--tls-certificate/--tls-private-key`（无证书者在握手期即被拒；注意 mTLS 下升级前缀默认取证书 CN，需与 `-P`/`!PathPrefix` 对齐） |
 | 隔离 | 容器侧继续收紧 | 服务端卷 `:ro,Z`、镜像 tag 固定、必要时加 `--security-opt=no-new-privileges`、`--cap-drop=ALL` |
+
+### 6.7 伪装与抗 DPI 路线
+
+先定义清楚"被关注"指的是哪三层，方案才有的放矢：
+
+| 层 | 本方案暴露出来的东西 | 现状态 |
+|---|---|---|
+| ① 传输指纹 | 非标端口上的 TLS；ClientHello 是 rustls 指纹——ALPN 只发 `http/1.1`，缺 `client_hello_padding`/`compress_certificate`/ALPS/`renegotiation_info`/ECH | 未处理（L0） |
+| ② HTTP 层固定串 | `GET /<前缀>/events`、`Upgrade: websocket`、`Sec-WebSocket-Protocol: v1, authorization.bearer.<明文 JWT>`、**没有 `User-Agent`**、同一端口没有真站 | 前缀已是暗号（L0），其余未处理 |
+| ③ 行为特征 | 一条长连接长期跑满带宽、无配套的真站请求、心跳周期固定 | 部分被 `read_timeout`/`ping` 影响 |
+
+**路线（按投入产出排序，实测状态逐条标注）**
+
+| 级别 | 手段 | 挡住哪一层 | 代价与实测状态 |
+|---|---|---|---|
+| **L0** 参数层（零成本，已在用） | 非标端口、路径前缀暗号、Basic 暗号、`-H`/`--http-headers-file` 注入 `User-Agent` 等头（实测 #68：默认 `ua="-"`，注入串原样送达上游） | ②的"无脑正则"与端口扫 | 只改"像不像"，①③原样保留。注意 `-H` 进 argv，明文可 `ps`（同 §4.1 第 2 条），要收敛就统一走 `--http-headers-file` |
+| **L1** nginx 反代 + 真站 + 443（本文推荐的下一步） | §3.8 整套：TLS 由 nginx 终结，同端口既跑真站又跑隧道；探测 `/` 得 200 真页，探隧道路径得 400/404（再加 `error_page` 连状态码都能改成站点 404） | ②基本消除（`User-Agent` 之外全部与真站同形），③的"同端口无真站"消失 | 全量实测通过（§7.11）。代价：443 被 nginx 独占、多一层配置与进程、`peer=` 日志失真（靠 `forwarded_for` 补）、`wts://` 不可用 |
+| **L2** CDN / Cloudflare 前置 | 域名挂 CF，真站与隧道共用一个域名与 443；SNI 落在 CDN 白名单段；客户端 `--tls-ech-enable`（wstunnel 只有客户端参数，服务端没有 ECH，ECH 实际由 CDN 侧提供） | ①（Hello 变成"打向 CDN"）+ 真实 IP 隐藏 | 免费档对 WebSocket 有约 100s 空闲上限与连接数限制，链路多一段、排障变慢；`--tls-ech-enable`/`--tls-sni-override` 本机无外网条件，**未实测** |
+| **L3** 再套一层"会装浏览器"的 TLS 前端（uTLS / Reality 思路） | 用 xray Reality 之类承接 ClientHello，wstunnel 退到内层明文 `ws://` | ①（rustls 指纹是这一层的唯一目标） | wstunnel 自己没有 uTLS，等于结构上再叠一层 L1，多一跳、证书与端口都要重排。**未实测** |
+| **L4** `wts://`（WebTransport/QUIC） | `--enable-webtransport` + UDP 443 | 换掉整个"HTTP 长连接"形态 | **反效果居多**：0-RTT、单条长会话、UDP 大流量本身就是重点特征，且与 L1 互斥（要再引 nginx `stream`/UDP，本方案未实测） |
+
+**不建议清单**
+
+- 只靠"换域名换前缀"求安心：暗号是访问控制不是伪装；`/events` 后缀与 `sec-websocket-protocol` 的结构写死在二进制里（源码取证，§3.7），改不掉。
+- 为了"像浏览器"关掉 `--tls-verify-certificate`：pin 面直接消失，伪装收益为负（配方 A 挂一个 CA 文件就够，§4.3 第 5 条）。
+- `--websocket-mask-frame`：只对明文 `ws://` 有意义（形态 B 的内网段才有资格谈），掩码 key 本身还是新特征，实测形态 A 无收益，**不建议为此改现网**。
+- 调 `-c/--connection-pool-size` 预热来"更像浏览器"：默认 `0`＝按需建连，实测反代下每条本地连接对应一条独立 WS（B3 一次请求一条 101），池化只改变连接数，不改变可辨识形态。
+
+**落地顺序建议**：L0 现在就补齐（`-H` 挂个浏览器 UA 到 `--http-headers-file`，顺手把 §4.1 的暴露面问题一起解决）→ 若这台机器本来就要建站，直接上 L1（一次改动：服务端去掉两个 TLS 参数 + 端口发布收回回环 + 客户端 URL 换成 443，`restrictions.yaml` 不动）→ 只有当对端确实在被主动探测/指纹干预时才考虑 L2/L3，L4 不建议。
 
 ## 7. 审计与同步记录
 
@@ -724,6 +824,102 @@ journalctl --user -u container-wstunnel-{server,client}.service --since -1h -o c
 
 **本轮之前已完成的静态验证**（原「未在本机验证的项」段落末尾的内容，原样搬到这里保留）：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（当时仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素，真机上已连这两条都不报）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。历史条目（#19、#30、#31、#44 以及 §7.8/§7.9 的推导）保留当时原文与推导过程、只加指向不改写历史；§5 全量用例仍建议上线时在真实目标侧再跑一遍。
 
+
+### 7.11 ws + nginx 反代形态实测（2026-11-28，形态 B 全量复测 discussion #571）
+
+本机 rootless podman 起「wstunnel server + nginx + wstunnel client」三容器复现上游 discussion [#571](https://github.com/erebe/wstunnel/discussions/571) 的 `ws://` + nginx 方案，顺带把 §6.7 L0/L1 涉及的每一项特征逐条打出来。配置结论在 §3.8，是否值得上在 §6.7，本节只放数据与踩坑。
+
+**测试环境**
+
+| 项目 | 值 |
+|---|---|
+| 镜像 | `ghcr.io/erebe/wstunnel:latest`（`wstunnel-cli 11.1.0`）+ `docker.io/library/nginx:alpine`（`nginx/1.31.10`） |
+| 链路 | client `wss://front:8443` → nginx（TLS 终结 + `http2 on`）→ `ws://10.123.0.2:55443` → 目标 `front:8080`（同一 nginx 的另一座真站 `server{}`） |
+| 网络 | `podman network create --disable-dns --subnet 10.123.0.0/24 wst-test`；服务端 `.2`、nginx `.3`、客户端每轮换一个（`.6`–`.41`），全部静态 `--ip` + `--add-host front:10.123.0.3` |
+| 服务端子命令 | `server --restrict-config /etc/wstunnel/restrictions.yaml --dns-resolver system://0.0.0.0 ws://[::]:55443`（**无任何 TLS 参数**，这就是形态 B 的核心改动） |
+| 暗号 | 与生产同一套：`-P cdn-socket-stream` + Basic `wstunnel:Wstunnel-2026`；`restrictions.yaml` 用仓库版的同构裁剪（两条 `match` 原样，`allow` 换成测试目标 `front:8080`） |
+| 证书 | 私有 CA 签 `CN=front`、SAN `DNS:front,DNS:tunnel.example.com`；客户端 `-v ca.crt:/etc/ssl/certs/wstunnel-ca.pem:ro` + `--tls-verify-certificate` |
+| nginx `location` | `/{前缀}/`（正解）、`/intercept/`、`/rewrite404/`、`/broken/`（故意漏 `proxy_http_version 1.1`）、`/slashrewrite/`（`proxy_pass` 结尾带 `/`）、`/idle5/` 与 8444 端口（`proxy_read_timeout 5s`） |
+| 真站 | `/srv/site`：`index.html`、`404.html`、`big.bin`（2 MiB，`sha256=a4f775c5c88f17c4…`） |
+| 复跑与清理 | 脚本与原始输出留在 `/var/tmp/wsttest/`（`t3.sh`/`t7.sh`/`tb.sh` + `out3.txt`/`out7.txt`/`out10.txt`），不在仓库内；测试容器全部删除、`wst-test` 网络释放、`podman ps -q` 归零，生产 `podmanv6` 网络与 `/etc/wstunnel` 未受影响 |
+
+**A 探测面（主动探测看到的东西）**
+
+| # | 请求 | 结果 | 判读 |
+|---|---|---|---|
+| A1 | `GET /` | `HTTP/2 200`、`server: nginx/1.31.10`、`content-type: text/html` | 与任意一座 nginx 站无差别 |
+| A2 | `GET /nope` | `code=404` + 站点 404 页 | 404 是自家站点页 |
+| A3 | `GET /cdn-socket-stream/events`（不带升级头） | `HTTP/2 400` + body `Invalid protocol request`（24 字节，上游原文透传） | **默认配置下唯一的文案泄露点** |
+| A4 | 同 A3 走 `/intercept/`（`proxy_intercept_errors on; error_page 400 404 502 /404.html;`） | `code=400`、body 换成站点 404 页 | 堵文案，状态码仍 400 |
+| A5 | 同 A3 走 `/rewrite404/`（`error_page 400 =404 /404.html;`） | `code=404` + 站点页 | 与 A2 完全同形 ⇒ 探测面归零 |
+| A6 | 绕过 nginx 直连 wstunnel（形态 A 基线） | `HTTP/1.1 400 Bad Request`、无 `server` 头、body 同一句 `Invalid protocol request` | 形态 A 的这句泄露没有真站兜着，更扎眼 |
+| A7 | 明文 HTTP 打 TLS 端口 | nginx 标准页 `400 The plain HTTP request was sent to HTTPS port` | 真站 nginx 本来就这样，不新增特征 |
+| A8 | 同一端口 `curl --http2` | `http_version=2 code=200`，同时刻隧道侧 `proto=HTTP/1.1 status=101` | 同端口 h2 真站与 ws 隧道天然共存（wstunnel 客户端 ALPN 只发 `http/1.1`），零特殊配置 |
+
+**B 功能面（`wss://front:8443` → nginx → `ws://10.123.0.2:55443`）**
+
+| # | 用例 | 结果 |
+|---|---|---|
+| B1 | 隧道取真站页 | ✅ 200 + 站点页 ⇒ 反代链路上「私有 CA 挂 `/etc/ssl/certs` + `--tls-verify-certificate`」配方（§4.3 第 5 条）依旧成立 |
+| B2 | 隧道取 2 MiB | ✅ `bytes=2097152`、`sha256` 与源一致 ⇒ `proxy_buffering off` 不破完整性、无截断 |
+| B3 | nginx 访问日志 | `status=101 proto=HTTP/1.1 http2= upstream=101 addr=10.123.0.2:55443 "GET /cdn-socket-stream/events HTTP/1.1"`；一次本地连接 = 一条 101（`-c` 默认 `0`，无预热连接池） |
+| B4 / B10 | 服务端日志的来源字段 | `cnx{peer="[::ffff:10.123.0.3]:55076"}:tunnel{forwarded_for="10.123.0.7" …}` ⇒ `peer=` 变成 nginx，真实客户端在 `forwarded_for=`（wstunnel 解析 XFF，讨论里没提这条，#59） |
+| B5 | 多段前缀 `-P cdn-socket-stream/metrics/v1` | ✅ 经反代照样通 ⇒ 印证 §3.7「`!PathPrefix` 只比对首段」 |
+| B6 / N1 | 前缀与 `location` 不对齐（`-P nope`） | 客户端 `Invalid status code: 404`，nginx 记 `status=404 … "GET /nope/events HTTP/1.1"`、`upstream=-`（根本没到 wstunnel）⇒ 错码是 404 不是 400（#63） |
+| B7 / N2 | 缺 Basic 头 | 客户端 `Invalid status code: 400`，nginx `upstream=400`，服务端 `Rejecting connection with not allowed destination: … port: 8080`（#64） |
+| B8 / N3 | `/broken/`（漏 `proxy_http_version 1.1`） | `Invalid status code: 400`（复现讨论结论：nginx 默认按 1.0 出上游，不转发 `Upgrade`/`Connection`） |
+| B9 / N4 | 目标不在白名单（`-L …:front:9`，`allow` 只写 8080） | 依旧 400 + `not allowed destination` ⇒ 反代不改变 `restrictions.yaml` 的强制语义 |
+
+**C 空闲保活（决定性实验）**：同一条 TCP 连接上先取一包、静默后再取第二包，看 nginx 的 `rt=$request_time` 与 `status=101` 次数。
+
+| # | `proxy_read_timeout` | 客户端 `--websocket-ping-frequency` | 结果 |
+|---|---|---|---|
+| C1 | `5s`（`/idle5/`） | `0`（关心跳） | 首包 200 字节；静默 9s 后第二包只回 **92 字节**（残包）+ 写入端 `Broken pipe`；nginx `status=101 rt=5.004` ⇒ 第 5.004s 被反代回收 |
+| C2 | `5s` | `2s`（周期 < 超时值） | 第二包**完整 200 字节**；`rt=9.012` ⇒ **pong 帧算上游侧读活动**，心跳确实能保活 |
+| C3 | `5s` | `15s`（周期 > 超时值） | 与 C1 同：第二包 92 字节 ⇒ 心跳太慢等于没有 |
+| C4 | `1h`（生产值） | `0` | 静默 30s 后第二包仍 200 字节；`rt=30.011` ⇒ **超时值才是决定量，心跳只是兜底** |
+
+`--websocket-ping-frequency` 的 `--help` 原文：`Frequency at which the client will send websocket pings to the server. Set to zero to disable. [default: 30s]`。讨论里「30s 心跳只能勉强撑住 nginx 默认 60s 超时」成立（30s < 60s 正好卡边界），但 C3/C4 说明这条边界既脆弱又不必要 —— 直接写 `proxy_read_timeout 1h`。
+
+**D 传输层：`https://`（h2 传输）能不能过这个反代**
+
+| # | 用例 | 结果 |
+|---|---|---|
+| D1 | 客户端 scheme 换成 `https://front:8443` 经 nginx | 本地端口 `curl code=000`、0 字节；nginx **access 与 error 各 0 条新增**；wstunnel 客户端也不报错 ⇒ 静默失败 |
+| D2 | 同一 h2 传输直连自持 TLS 的第二个服务端（`https://…:55444`，不经 nginx） | ✅ 取回真站页 ⇒ 不是 h2 本身不能用，是「反代 → 明文 ws 上游」这段只讲 HTTP/1.1 |
+| D3 | `wss://` 直连同端口（对照） | ✅ 同形 |
+
+**升级请求在 nginx 侧的真实头部**（临时在 `log_format` 里打 `$http_*`）
+
+| 场景 | 抓到的内容 |
+|---|---|
+| 默认（不注入任何头） | `ua="-"`（**没有 User-Agent**）、`up="websocket"`、`conn="upgrade"`、`wsv="13"`、`auth="Basic d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg=="`、`swp="v1, authorization.bearer.<JWT>"` |
+| `-H 'User-Agent: Mozilla/5.0 …Chrome/131…' -H 'Accept-Language: …'` | 两个头**原样送达上游侧**（`ua=` 变成注入串），隧道照常 101（#68） |
+| JWT payload 解开 | `{"id":"01a22180-d309-…","p":{"Tcp":{"proxy_protocol":false}},"r":"front","rp":8080}` ⇒ 目标 `host:port` 明文，与形态 A 同一个风险面（§1 已记） |
+
+**新增结论（#56 起，编号接 §7.10）**
+
+| # | 级别 | 发现 | 处理 |
+|---|---|---|---|
+| 56 | **高** | `proxy_pass http://127.0.0.1:55443/;` 结尾多一个 `/` ⇒ nginx 用 location 前缀替换 URI，`/cdn-socket-stream/events` 被改写成 `/events`，服务端 `Rejecting connection with bad upgrade request: /events` → 400，**所有隧道全断**（E3） | §3.8 前提①、§6.5 速查首行，nginx 片段里加了行内注释 |
+| 57 | 中 | 空闲隧道被掐的唯一决定量是 `proxy_read_timeout`：C1–C4 四组对照（5s + ping0/15 都在 `rt=5.004s` 被掐、ping2 活到 `rt=9.012s`、1h + ping0 静默 30s 后 `rt=30.011s` 仍复用） | §3.8 前提③ + nginx 片段写死 `1h` |
+| 58 | 中 | h2 传输（客户端写 `https://`）过不了「反代 → 明文 ws」这一段，且失败全静默：`code=000` + 两条日志皆 0 条 + 客户端无报错（D1 与 D2/D3 对照） | §3.8 前提④ + §6.5：反代形态一律 `wss://` |
+| 59 | 信息 | wstunnel 会解析 `X-Forwarded-For` 并写进日志字段 `forwarded_for=` ⇒ 反代后真实来源 IP 不丢，只是不在 `peer=` 里（讨论里没提） | §3.8 改动面表 + §6.4 看日志姿势 |
+| 60 | 低 | 不拦截时上游 400 的 body 固定是 `Invalid protocol request`（形态 A 直连也是同一句）；`proxy_intercept_errors` 只能换 body，要连状态码一起变成站点 404 得写 `error_page 400 =404 /404.html;`（A3/A4/A5） | §3.8 nginx 片段给出两档写法 |
+| 61 | **中** | 形态 B 把「谁能看见两条暗号」从「只有 wstunnel 服务端」扩大成「终结 TLS 的那个进程也算」：nginx 侧直接抓到 `Authorization: Basic …` 与明文 JWT（含目标 `host:port`） | §1 与 §3.8 各加一条警示：`log_format` 别记 `$http_authorization`；反代机的日志权限按密钥级别管 |
+| 62 | 信息 | 环境坑：宿主 `dnsmasq` 占 `0.0.0.0:53` ⇒ podman `aardvark-dns` 起不来（`failed to bind udp listener on 10.123.0.1:53: Address already in use`），自定义网络里容器名解析全废 | 测试用 `--disable-dns` + 静态 IP + `--add-host` 绕开；生产 `podmanv6` 若同样有 `:53` 抢占，`--dns-resolver system://0.0.0.0` 只是让**服务端解析目标**走系统解析器，救不了容器名解析 |
+| 63 | 中 | `location` 没覆盖 `/<前缀>/` 时，客户端看到的是 `Invalid status code: 404`（被自家站点接走，`upstream=-`），而不是暗号错时的 400 —— 极易查错方向 | §3.8 前提② + §6.5 速查 |
+| 64 | 信息 | `restrictions.yaml` 任何一维不命中（含**只缺 Basic**）都统一报 `Rejecting connection with not allowed destination`，不会单独提示鉴权失败 | §6.4 排障提示：看到这句先核对两条暗号，再核白名单 |
+| 65 | 信息 | 漏 `proxy_http_version 1.1` ⇒ 400（复现讨论结论）；`proxy_set_header Authorization ""` 则等于自废暗号2 | nginx 片段保留注释 |
+| 66 | 信息 | 2 MiB 经隧道字节与 `sha256` 全等；一条本地连接对应一根独立 WS 升级（`-c` 默认 `0`，无连接池预热） | §6.7「不建议清单」里关于池化的判断据此写死 |
+| 67 | 信息 | 多段前缀 `-P a/b/c` 经反代可用，反证 `!PathPrefix` 只比对首段（B5，与 §3.7 源码取证互相印证） | `restrictions.yaml` 注释补一句 |
+| 68 | 信息 | 客户端默认**不发 `User-Agent`**（nginx 侧 `ua="-"`）；`-H`/`--http-headers-file` 注入的头原样送达上游 | §6.7 L0：把 UA 注入列为零成本第一步（`-H` 进 argv 可 `ps`，要收敛就统一 `--http-headers-file`，同 §4.1 第 2 条） |
+| 69 | 信息 | `--websocket-ping-frequency` 默认 `30s`（`--help` 原文），讨论里「30s 勉强撑住 60s 默认超时」的说法成立，但 C3/C4 证明它既脆弱又不必要 | §3.8 前提③的结论按实测改写 |
+| 70 | 低 | 测试脚手架自身的坑：`nginx:alpine` 的 `error.log` 是指向 `/dev/stderr` 的符号链接（`cat` 永久阻塞、`truncate` 报 `Invalid argument`，得自定义 `access_log` 真文件 + `podman logs --since`）；nginx 没有 `$protocol` 变量（用 `$server_protocol`/`$http2`）；bash 往死隧道的 fd 写会被 `SIGPIPE` 打死脚本（需 `trap '' PIPE`）；`--tls-private-key` 指向容器读不到的文件时服务端直接 panic 在 `wstunnel/src/lib.rs:514`（`Permission denied (os error 13)`，与 §3.3 同源，形态 B 少了这个面） | 记录，避免复跑再烧一轮 |
+
+**形态 B 仍未实测**：`proxy_pass https://…` + `proxy_ssl_server_name on`（保留 wstunnel 自持 TLS 的那条路）；`wts://` 经 nginx `stream`/UDP 的转法；前置 Cloudflare 后的 WebSocket 100s 空闲上限与 ECH（§6.7 L2）；`--tls-ech-enable`/`--tls-sni-override`（本机无外网条件）；老写法 `listen 8443 ssl http2;` 与新写法 `http2 on;` 的差异；同一 nginx 上多 `server{}`/多 SNI 分流。
+
+**本轮对本文的改动**：§1 补形态 B 拓扑与暗号可见性警示、§2 参数表加「对外端口（可选形态 B）」行、新增 §3.8（配置 + 四条实测前提）、§6.5 加 5 行反代速查、新增 §6.7（L0–L4 伪装路线与不建议清单）、`restrictions.yaml` 注释补「多段前缀只比对首段」。
 
 ## 8. 附件（本目录）
 
