@@ -4,7 +4,19 @@
 #     （那条命令给出的是 container-wstunnel.service）；想让生成器可复现就同步改 --name，见 README §3.5
 # 安装: install -Dm644 container-wstunnel-server.service ~/.config/systemd/user/
 # 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-server.service
-# 配置目录与服务端/客户端统一为 /etc/wstunnel（证书 + restrictions.yaml），bind mount 只读
+# 配置目录与服务端/客户端统一为 /etc/wstunnel（形态 B 下只剩 restrictions.yaml），bind mount 只读
+#
+# ── 当前形态：B（主机 nginx 终结 TLS，容器跑明文 ws）───────────────────────────
+#   配套文件：nginx/tunnel.example.com.conf（→ /etc/nginx/sites-available/）；说明见 README §3.8、实测数据 §7.12
+#   相对形态 A（容器自持 TLS）的三处改动，就是下面 ExecStart 里被删掉/改掉的东西：
+#     1. 子命令 wss://[::]:55443 → ws://[::]:55443，并删除 --tls-certificate / --tls-private-key（证书归 nginx）
+#     2. -p 55443:55443 → -p 127.0.0.1:55443:55443（只有宿主机上的 nginx 需要能连到它，防火墙只放行 443）
+#     3. 客户端 URL 随之改成 wss://tunnel.example.com（不带端口，见客户端单元）
+#   退回形态 A（不装 nginx，wstunnel 自己终结 TLS）只需还原上面三点；restrictions.yaml 两条暗号一字不改。
+#   ⚠ 形态 B 下 privkey.pem 不再进容器 ⇒ §5.2 那个"续期后拷进 /etc/wstunnel"的 deploy-hook 可以删掉，
+#     证书直接让 nginx 读 /etc/letsencrypt/live/，续期钩子里只做 systemctl reload nginx
+#   ⚠ 想同时监听 v6 回环：补 -p [::1]:55443:55443，nginx 侧 proxy_pass http://[::1]:55443
+# ────────────────────────────────────────────────────────────────────────────
 # ⚠ --user 0:0：镜像是 USER app(uid 1000)，rootless 下它映射到的宿主机 uid 读不到属主为你的 600 私钥；
 #   --user 0:0 让容器内 root 即部署者本人（不是宿主机 root）。目录属主见 README §3.1/§3.2
 # ⚠ ,z：SELinux enforcing 下 bind mount 需要安全标签（getenforce 确认；:z 共享标签，:Z 独占）
@@ -29,12 +41,10 @@ ExecStart=/usr/bin/podman run \
         --name wstunnel \
         --label io.containers.autoupdate=registry \
         --network podmanv6 \
-        -p 55443:55443 \
+        -p 127.0.0.1:55443:55443 \
         --user 0:0 \
         -v /etc/wstunnel:/etc/wstunnel:ro,z ghcr.io/erebe/wstunnel:latest /home/app/wstunnel server \
-        --tls-certificate /etc/wstunnel/fullchain.pem \
-        --tls-private-key /etc/wstunnel/privkey.pem \
-        --restrict-config /etc/wstunnel/restrictions.yaml wss://[::]:55443
+        --restrict-config /etc/wstunnel/restrictions.yaml ws://[::]:55443
 ExecStop=/usr/bin/podman stop \
         --ignore -t 10 \
         --cidfile=%t/%n.ctr-id

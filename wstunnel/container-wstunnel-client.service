@@ -47,6 +47,14 @@ TimeoutStopSec=70
 #   --network podmanv6 并逐条 -p 2223:2223 -p 10000:10000 -p 10001:10001 \
 #   -p 8101:8101 -p 5002:5002 -p 55689:55689（-p 与 --network host 同时出现会被忽略/报错）
 # ⚠ 6 个本地端口 = 无鉴权的开放代理口，防火墙按源网段收紧或改绑具体网卡 IP，见 README §4.5
+# ⚠ 结尾 URL 走 443（形态 B：TLS 由主机 nginx 终结，见 nginx/tunnel.example.com.conf、README §3.8/§7.12）：
+#   1. 端口号必须省掉。写成 wss://tunnel.example.com:55443 会打回服务端容器的明文 ws 端口上，
+#      而 55443 现在只发布在 127.0.0.1（对外不通），症状是客户端一声不响地反复重连
+#   2. 服务端不再自持 TLS ⇒ 传输层证书变成 nginx 的那张：公共 CA（Let's Encrypt 等）签发时
+#      镜像自带根，下面"可选"的 ca.pem 整段都不用挂；自签/私有 CA 时才按配方 A 挂 CA
+#   3. 反代形态一律 wss://，不要写 https://（h2 传输过不了"反代 → 明文 ws 上游"，且失败是静默的，
+#      实测 #58：本地端口 code=000 + nginx 两条日志 0 条 + 客户端不报错）
+#   退回形态 A（wstunnel 自持 TLS、直连 55443）时把端口加回来即可，其余参数不变
 # ⚠ 前缀 -P 与凭据 --http-upgrade-credentials 都在 ExecStart 里 ⇒ 本文件 600、改这两项都要 restart
 ExecStart=/usr/bin/podman run \
         --cidfile=%t/%n.ctr-id \
@@ -68,7 +76,7 @@ ExecStart=/usr/bin/podman run \
         -L tcp://0.0.0.0:8101:proxy.momoproxy.com:8100 \
         -L tcp://0.0.0.0:5002:us.rapidproxy.io:5001 \
         -L tcp://0.0.0.0:55689:45.149.172.51:55688 \
-        wss://tunnel.example.com:55443
+        wss://tunnel.example.com
 # 可选（自签/私有 CA 必做）：容器只信镜像内的系统信任库，客户端没有自定义 CA 的参数
 #   （--tls-client-ca-certs 是服务端专用），实测症状是静默失败：服务端
 #   "received fatal alert: UnknownCA"、客户端只反复打 Doing TLS handshake 后 0.6→6.4s 指数退避，

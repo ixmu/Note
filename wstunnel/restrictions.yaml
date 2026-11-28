@@ -29,6 +29,13 @@
 #
 # 未声明 !ReverseTunnel ⇒ 反向隧道(-R) 一律禁止。
 #
+# 形态 B（主机 nginx 终结 TLS，本方案当前落地形态）对本文件**零改动**：
+#   · 两条暗号都在 客户端↔nginx 的 TLS 之内，nginx 解密后才转发明文 ws ⇒ 匹配串逐字节不变
+#   · cidr 限制的是**隧道目标地址**（服务端往外连的那个 host:port），不是连接来源 ⇒
+#     反代后连接来源变成 nginx（127.0.0.1）也不影响判定。wstunnel 只是把 X-Forwarded-For 记进
+#     日志字段 forwarded_for=（实测 §7.11 B4），它不参与 restrictions 判定
+#   · 想按来源 IP 收紧就别指望这里（wstunnel 没有按来源放行的维度），在 nginx 侧对该 location 加 allow/deny
+#
 # ⚠ 本次审计的行为变化：旧配置只有「端口白名单 + host:^.*$ + cidr:0/0」，
 #   即任何拿到双暗号的客户端都能把这 6 个端口转给任意主机（SSRF 面）。
 #   现在按 README 的映射表逐条锁死目标；如需退回旧行为，用文件末尾的「宽松回退」替换 allow 段。
