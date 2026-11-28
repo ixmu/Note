@@ -38,7 +38,7 @@ ExecStart=/usr/bin/podman run \
         --sdnotify=conmon \
         --replace \
         -d \
-        --name wstunnel \
+        --name wstunnel-server \
         --label io.containers.autoupdate=registry \
         --network podmanv6 \
         -p 127.0.0.1:55443:55443 \
