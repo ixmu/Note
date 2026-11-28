@@ -1,0 +1,39 @@
+
+[Unit]
+Description=Podman container-wstunnel.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=%t/containers
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=always
+TimeoutStopSec=70
+ExecStart=/usr/bin/podman run \
+        --cidfile=%t/%n.ctr-id \
+        --cgroups=no-conmon \
+        --rm \
+        --sdnotify=conmon \
+        --replace \
+        -d \
+        --name wstunnel \
+        --label io.containers.autoupdate=registry \
+        --network podmanv6 \
+        -p 55443:55443 \
+        -v /opt/wstunnel:/opt/wstunnel:rw ghcr.io/erebe/wstunnel:latest /home/app/wstunnel server \
+        --tls-certificate /opt/wstunnel/fullchain.pem \
+        --tls-private-key /opt/wstunnel/privkey.pem \
+        --restrict-config /opt/wstunnel/restrictions.yaml wss://[::]:55443
+ExecStop=/usr/bin/podman stop \
+        --ignore -t 10 \
+        --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm \
+        -f \
+        --ignore -t 10 \
+        --cidfile=%t/%n.ctr-id
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=default.target
