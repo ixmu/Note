@@ -2,10 +2,10 @@
 # 镜像与服务端单元同一个（ghcr.io/erebe/wstunnel），区别只在结尾的子命令：本文件 client，服务端 server
 #   —— 缺镜像名会把 /home/app/wstunnel 当成镜像去解析并报 no such image，两个单元都要写全
 # 形态与 container-wstunnel-server.service 成对，等同 podman generate systemd --name wstunnel-client --files 的输出
-# 安装: install -Dm600 container-wstunnel-client.service ~/.config/systemd/user/   ← 必须 600，暗号2 写在文件里
+# 安装: install -Dm600 container-wstunnel-client.service ~/.config/systemd/user/   ← 必须 600，两条暗号都写在文件里
 # 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-client.service
 #
-# 暗号2（Basic 凭据）直接写在本文件里 ⇒ 四条连带结论：
+# 两条暗号都直接写在本文件里（暗号1 走 -P、暗号2 走 --http-upgrade-credentials）⇒ 四条连带结论：
 #   1. 客户端不挂任何宿主机文件：不需要 /etc/wstunnel 目录，也不需要 --user 0:0 与卷的 ,z 标签
 #      （容器按镜像默认 USER app/uid1000 跑即可；服务端因为要读 600 私钥仍然保留那两项）
 #   2. install -Dm600 只挡"读文件"；同机其他用户仍能从 ps -ef、/proc/<容器主进程>/cmdline、
@@ -14,7 +14,8 @@
 #      和 --user 0:0 一起加回来（见 README §4.1）
 #   3. 换密码必须 daemon-reload + restart（文件方案是每请求重读，可不重启）
 #   4. 上游没有 http-upgrade 凭据的环境变量（v11.1.0 只有 WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX、
-#      WSTUNNEL_HTTP_PROXY_LOGIN/_PASSWORD 等），所以没法用 -e 把它从 argv 挪走
+#      WSTUNNEL_HTTP_PROXY_LOGIN/_PASSWORD 等），所以没法用 -e 把它从 argv 挪走。
+#      暗号1 虽然有环境变量入口，本方案也一并走命令行（见下面 ExecStart 前的说明），两条暗号同一形态
 [Unit]
 Description=Podman container-wstunnel-client.service
 Documentation=man:podman-generate-systemd(1)
@@ -30,15 +31,22 @@ Environment=PODMAN_SYSTEMD_UNIT=%n
 Restart=always
 RestartSec=5
 TimeoutStopSec=70
-# ⚠ 暗号1：[Service] 的 Environment= 不会进入容器，必须用 podman run -e 传
-#   -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX 与命令行 -P 是同一配置的两条入口，写一个即可（同时给时 -P 优先），
-#   所以本文件不再重复写 -P；两个都不给会退回默认 v1 → 请求 /v1/events → 服务端 !PathPrefix 不命中 → 400
+# ⚠ 暗号1（路径前缀）走命令行 -P，不用 -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX：
+#   1. 少一条注入链路。[Service] 的 Environment= 不会进容器，只有 podman run -e / --env-file /
+#      Quadlet Environment= 才进得去；写成 -P 后这类"改 unit 却没进容器"的失误根本不存在
+#   2. 与 §5 手工验收命令、§4.7 裸机写法逐字一致，照抄命令不会漏参
+#   3. systemctl cat / podman inspect 里前缀和暗号2 挨在一起，一眼可核
+#   4. 代价是前缀进 argv 明文；前缀敏感度低于密码，且暗号2 早已在 argv（见上面第 2 条），无额外暴露
+#   注意：-P 优先于环境变量（clap 的 env= 仅在命令行缺省时取值）。日后若有人加 --env-file 或 -e 设前缀，
+#   会被这里的 -P 静默覆盖 —— 想改用环境变量入口就把 -P 整行删掉，别两处并存
+#   两个入口都不给时前缀退回默认 v1 → 请求 /v1/events → restrictions 的 !PathPrefix 不命中 → 400
 #   （服务端 restrictions 只校验、不代客户端决定前缀；镜像 Dockerfile 已内置 ENV RUST_LOG=INFO，调试再显式覆盖）
 # ⚠ --network host：6 条 -L 的 0.0.0.0 监听直接落在宿主机上，省掉 6 行 -p 映射，
 #   也不受 rootless 端口转发只有 TCP 的限制。用 bridge 网络时请改成
 #   --network podmanv6 并逐条 -p 2223:2223 -p 10000:10000 -p 10001:10001 \
 #   -p 8101:8101 -p 5002:5002 -p 55689:55689（-p 与 --network host 同时出现会被忽略/报错）
 # ⚠ 6 个本地端口 = 无鉴权的开放代理口，防火墙按源网段收紧或改绑具体网卡 IP，见 README §4.5
+# ⚠ 前缀 -P 与凭据 --http-upgrade-credentials 都在 ExecStart 里 ⇒ 本文件 600、改这两项都要 restart
 ExecStart=/usr/bin/podman run \
         --cidfile=%t/%n.ctr-id \
         --cgroups=no-conmon \
@@ -49,8 +57,8 @@ ExecStart=/usr/bin/podman run \
         --name wstunnel-client \
         --label io.containers.autoupdate=registry \
         --network host \
-        -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream \
         ghcr.io/erebe/wstunnel:latest /home/app/wstunnel client \
+        -P cdn-socket-stream \
         --tls-verify-certificate \
         --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
         -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 \

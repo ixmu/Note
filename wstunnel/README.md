@@ -25,6 +25,8 @@
 #   cdn-socket-stream   → 路径前缀暗号
 #   Wstunnel-2026       → Basic 密码（改动后同步 base64，见 §6.1）
 #   podmanv6            → 服务端用的 podman 网络名（需预先创建，见 §3.2）
+# 两条暗号都在客户端 unit 的 ExecStart 里（-P <前缀> 与 --http-upgrade-credentials <user:pass>），
+# 服务端侧对应 restrictions.yaml 的 !PathPrefix / !Authorization，替换时要一一对上（§6.1、§6.2）
 ```
 
 ## 1. 架构总览
@@ -49,7 +51,7 @@
 |---|---|---|
 | 服务端口 | `55443/tcp` | 非标端口，需在防火墙放行 |
 | 协议 | `wss://`（WebSocket over TLS） | 证书与端口无关，只对域名生效 |
-| 路径前缀（暗号1） | `cdn-socket-stream` | 客户端 `-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` **同义，写一个就够**（本方案只写 `-e`，不再重复 `-P`）；线上请求路径固定为 `/{前缀}/events`；**两者都不给时默认前缀退回 `v1`，会被 restrictions 直接拒**；容器形态必须用 `-e` 传入（§4.3、§3.7） |
+| 路径前缀（暗号1） | `cdn-socket-stream` | 客户端单元里写死命令行 `-P cdn-socket-stream`（也有等价环境变量 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`，但**只写一个**且 `-P` 优先，理由见 §4.3 第 1 条、§7.9 #43）；线上请求路径固定为 `/{前缀}/events`；**两个入口都不给时默认前缀退回 `v1`，会被 restrictions 直接拒（400）** |
 | Basic 账号（暗号2） | `wstunnel:Wstunnel-2026` | base64: `d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==`（已用 `printf … \| base64` 复核一致） |
 | 配置根目录 | `/etc/wstunnel/`（**服务端专用**） | 证书 + `restrictions.yaml`；客户端不挂宿主机文件，凭据写在 unit 里（§4.1）。服务端历史版本用 `/opt/wstunnel`，已统一，迁移见 §3.1 |
 | 证书文件 | `/etc/wstunnel/fullchain.pem` + `privkey.pem` | 容器内同路径（bind mount）；自动热加载 |
@@ -214,7 +216,7 @@ systemctl --user daemon-reload && systemctl --user enable --now container-wstunn
 | `/etc/wstunnel` | `fullchain.pem`、`privkey.pem`、`restrictions.yaml` | 用不到（凭据在 unit 里） |
 | 卷 | `-v /etc/wstunnel:/etc/wstunnel:ro,z` | 无挂载 ⇒ 不涉及 `,z` 标签 |
 | `--user` | `0:0`（镜像默认 `app`/1000 读不到 600 私钥） | 沿用镜像默认 `app`(1000)，因为没有文件要读 |
-| 暗号1 | 由 `restrictions.yaml` 的 `!PathPrefix` 判定 | `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`（§4.3 第 1 条） |
+| 暗号1 | 由 `restrictions.yaml` 的 `!PathPrefix` 判定（只校验，不代客户端决定前缀） | 命令行 `-P cdn-socket-stream`（§4.3 第 1 条） |
 | 镜像引用 | `ghcr.io/erebe/wstunnel:latest` | 同左，**两处必须同步**，换 tag 一起改 |
 
 > 客户端单元初稿漏写了镜像名（`-v …:ro,z` 后直接跟 `/home/app/wstunnel client`），podman 会把 `/home/app/wstunnel` 当镜像解析并报 `no such image`；已修，见 §7.6 #28。
@@ -233,7 +235,7 @@ systemctl --user daemon-reload && systemctl --user enable --now container-wstunn
 install -Dm600 container-wstunnel-client.service ~/.config/systemd/user/container-wstunnel-client.service
 ```
 
-两种放法的取舍（**上游没有 http-upgrade 凭据的环境变量**，v11.1.0 只有 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`、`WSTUNNEL_HTTP_PROXY_LOGIN/_PASSWORD` 等，所以凭据只能走命令行，无法用 `-e` 挪出 argv）：
+两种放法的取舍（**上游没有 http-upgrade 凭据的环境变量**，v11.1.0 只有 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`、`WSTUNNEL_HTTP_PROXY_LOGIN/_PASSWORD` 等，所以凭据只能走命令行，无法用 `-e` 挪出 argv——暗号1 有 env 入口，本方案同样选了命令行，见 §4.3 与 §7.9 #43）：
 
 | 维度 | 写进 unit（本方案） | 落盘 `auth.txt` + `--http-headers-file` |
 |---|---|---|
@@ -277,7 +279,7 @@ ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # 6 个本地端口已�
 
 | # | 差异 | 不处理的后果 | 本单元做法 |
 |---|---|---|---|
-| 1 | `[Service]` 段的 `Environment=` **不会进入容器** | 暗号1 丢失 → 前缀退回默认 `v1` → 服务端 restrictions 全拒，表现为"客户端在跑但所有隧道 400" | 用 `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream` |
+| 1 | `[Service]` 段的 `Environment=` **不会进入容器**，只有 `podman run -e` / `--env-file` / Quadlet `Environment=` 进得去 | 暗号1 若写成 unit 的 `Environment=`：前缀静默退回默认 `v1` → 服务端 restrictions 全拒，表现为"客户端在跑但所有隧道 400" | **本方案直接绕开这个坑**：暗号1 用命令行 `-P cdn-socket-stream`，完全不依赖环境变量。要用 env 形态就必须写 `-e`，且**不可与 `-P` 并存**（`-P` 静默覆盖 env） |
 | 2 | `-L` 的 `0.0.0.0` 监听发生在容器 netns 内 | bridge 网络下端口只在容器里，宿主机/局域网都连不上 | `--network host`（6 个 `-L` 原样生效，省掉 6 行 `-p`）；用 bridge 则须逐条 `-p PORT:PORT`，且只支持 TCP |
 | 3 | 镜像 `USER app`(1000) 经 rootless uid 映射后，读不到属主为你的 600 文件 | 挂进来的文件读不到 → crash loop（`podman logs` 见 Permission denied） | **本方案客户端不挂文件，暂时无关**；改回文件凭据或上 mTLS 时补 `--user 0:0`（服务端已带，§3.3） |
 | 4 | SELinux 对 bind mount 需要安全标签 | 文件权限正常仍 `Permission denied` | 同上，只在有 `-v` 时才需要，届时卷尾加 `,z`（服务端已带） |
@@ -288,7 +290,7 @@ ss -lntp | grep -E '2223|10000|10001|8101|5002|55689'   # 6 个本地端口已�
 
 | 参数 | 环境变量 | 备注 |
 |---|---|---|
-| `-P` / `--http-upgrade-path-prefix` 路径前缀 | `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` | **两个入口等价，写一个即可**：本单元只写 `-e`，命令行不再重复 `-P`；同时给时命令行优先（clap 4.6 的 `env=` 仅在命令行缺省时取值，`src/config.rs:154-161`）。默认 `v1`；容器里必须用 `podman run -e` 传（§4.3 第 1 条、§3.7 首段剥离规则） |
+| `-P` / `--http-upgrade-path-prefix` 路径前缀 | `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` | **两个入口等价，只写一个**：本方案用命令行 `-P cdn-socket-stream`（少一条注入链路，理由见 §4.3 第 1 条 / §7.9 #43）。同时给时 `-P` 优先（clap 4.6 的 `env=` 仅在命令行缺省时取值，绑定见 `src/config.rs:154-161`）。默认 `v1`；若改用 env 形态，容器里必须 `podman run -e` 传（另见 §3.7 首段剥离规则） |
 | `-p` http 代理 | `HTTP_PROXY` | 客户端在代理后面出网时用 |
 | 代理账号/密码 | `WSTUNNEL_HTTP_PROXY_LOGIN` / `WSTUNNEL_HTTP_PROXY_PASSWORD` | 会覆盖 `-p` 里的账号 |
 | `--log-lvl` 日志级别 | `RUST_LOG` | TRACE/DEBUG/INFO/WARN/ERROR/OFF；镜像内置 `INFO`，调试用 `-e RUST_LOG=DEBUG` |
@@ -333,9 +335,10 @@ ContainerName=wstunnel-client
 Network=host
 AutoUpdate=registry
 Label=io.containers.autoupdate=registry
-Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream
 # 不挂宿主机文件（凭据在 Exec 行里），故 Volume=/User= 两行都不需要
-Exec=/home/app/wstunnel client --tls-verify-certificate --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
+# 前缀同样走 -P，与两个 unit 一致。Quadlet 的 [Container] Environment= 确实会进容器，
+# 但与 -P 并存时 -P 赢，别一半 env 一半 -P
+Exec=/home/app/wstunnel client -P cdn-socket-stream --tls-verify-certificate --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
   -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 \
   -L tcp://0.0.0.0:10001:hk.rp.linkup.onl:10000 \
   -L tcp://0.0.0.0:10000:43.134.70.211:9999 \
@@ -358,7 +361,7 @@ systemctl --user daemon-reload && systemctl --user start wstunnel-client.contain
 
 ### 4.7 裸机二进制备选（不使用容器时）
 
-用回早期的 `wstunnel-client.service`：`ExecStart=/usr/local/bin/wstunnel client …` + `Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream`（裸机下这个 `Environment=` 是有效的，与 §4.3 第 1 条正好相反）。加固集与注意事项同 §3.6：`LimitNOFILE=65535`、`RestartSec=5`、`StartLimitIntervalSec=0`、`ProtectSystem=strict` 等；`--http-upgrade-credentials` 写在命令行时，`chmod 600` 的 unit 只挡读文件、挡不住 `ps`（容器形态同理，见 §4.1）。
+用回早期的 `wstunnel-client.service`：`ExecStart=/usr/local/bin/wstunnel client -P cdn-socket-stream …`，与容器形态逐字一致。裸机下 `Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream` 同样有效（与 §4.3 第 1 条正好相反——容器里 `[Service] Environment=` 不进容器），但为了让两种形态写法统一，仍推荐 `-P`。加固集与注意事项同 §3.6：`LimitNOFILE=65535`、`RestartSec=5`、`StartLimitIntervalSec=0`、`ProtectSystem=strict` 等；`--http-upgrade-credentials` 写在命令行时，`chmod 600` 的 unit 只挡读文件、挡不住 `ps`（容器形态同理，见 §4.1）。
 
 ## 5. 验收测试
 
@@ -391,11 +394,11 @@ wstunnel client --tls-verify-certificate \
   --http-upgrade-credentials 'wstunnel:Wstunnel-2026' -P wrong-prefix \
   -L tcp://3333:gw.pyproxy.com:2222 wss://<域名>:55443
 
-# ⑦ 没有裸二进制时，直接用容器跑上面的手工用例
-#    坑还是那个坑：暗号1 必须 -e 传，[Service] Environment= 不进容器。用 auth.txt 的话要补 -v /etc/wstunnel:/etc/wstunnel:ro,z + --user 0:0
+# ⑦ 没有裸二进制时，直接用容器跑上面的手工用例（与单元同形态：暗号1 用 -P）
+#    要试 env 形态就把 -P 换成 -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=wrong-prefix（-P 与 -e 并存时 -P 赢）；
+#    用 auth.txt 的话要补 -v /etc/wstunnel:/etc/wstunnel:ro,z + --user 0:0
 podman run --rm -it --network host \
-  -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=wrong-prefix \
-  ghcr.io/erebe/wstunnel:latest /home/app/wstunnel client --tls-verify-certificate \
+  ghcr.io/erebe/wstunnel:latest /home/app/wstunnel client -P wrong-prefix --tls-verify-certificate \
   --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
   -L tcp://3333:gw.pyproxy.com:2222 wss://<域名>:55443
 ```
@@ -444,7 +447,7 @@ systemctl --user daemon-reload && systemctl --user restart container-wstunnel-cl
 #     用 --http-headers-file /etc/wstunnel/auth.txt 才免重启——文件每请求重读，见 §4.1）
 ```
 
-注意：客户端容器化后有**两处**不热——前缀 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX`（启动时读进进程环境，见 §6.2）和写在 unit 里的暗号2（要 `daemon-reload` + `restart`）。服务端侧的 `restrictions.yaml` 始终热加载。
+注意：客户端有**两处**不热，且都在同一个 unit 文件里——命令行 `-P` 的前缀（进程启动时读入，见 §6.2）与 `--http-upgrade-credentials` 的暗号2（要 `daemon-reload` + `restart`）。改任一处的操作完全相同，不必区分形态。服务端侧的 `restrictions.yaml` 始终热加载。
 
 ### 6.2 改路径前缀暗号
 
@@ -453,7 +456,7 @@ systemctl --user daemon-reload && systemctl --user restart container-wstunnel-cl
 ```bash
 grep -rn cdn-socket-stream restrictions.yaml container-wstunnel-client.service README.md
 # 服务端：restrictions.yaml 的 !PathPrefix —— 保存即热加载
-# 客户端：container-wstunnel-client.service 里 -e 的值 —— 必须重启
+# 客户端：container-wstunnel-client.service 里 -P 的值 —— 必须重启（没有 -e，也别去翻 [Service] Environment=）
 systemctl --user daemon-reload && systemctl --user restart container-wstunnel-client
 # 如启用了 -r / --restrict-http-upgrade-path-prefix，也要一起改
 ```
@@ -486,7 +489,7 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 | 现象 | 原因 | 处理 |
 |---|---|---|
 | 容器反复重建、日志显示读取失败 | 证书/私钥/白名单/凭据文件缺失、写了一半，或**容器读不到**（§3.3、§4.3） | 按属主/SELinux 标签处理后 `podman logs -f` 观察 |
-| 客户端在跑但所有隧道都 400 | `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 漏了（`[Service] Environment=` 不进容器），前缀退回 `v1` | §4.3 第 1 条 |
+| 客户端在跑但所有隧道都 400 | 前缀不匹配：`-P` 被删/拼错，或误用 unit 的 `Environment=`（不进容器）、又或 `-e` 被同处的 `-P` 静默覆盖，最终退回默认 `v1` | `podman inspect wstunnel-client --format '{{json .Config.Cmd}}'` 看实际 argv；§4.3 第 1 条 |
 | 宿主机/局域网连不上客户端本地端口 | bridge 网络里端口只在容器内 | `--network host`，或补 `-p PORT:PORT`（仅 TCP） |
 | `podman ps --port` 看不到端口 | `--network host` 无端口映射，属正常 | 用 `ss -lntp` 看宿主机监听 |
 | 换密码后服务端一直 400 | 凭据写在 unit 里，只改文件/只 reload 不生效 | `systemctl --user daemon-reload && systemctl --user restart container-wstunnel-client`（§4.1/§6.1） |
@@ -553,7 +556,7 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 
 | # | 级别 | 发现 | 处理 |
 |---|---|---|---|
-| 19 | **高** | `[Service]` 段 `Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=…`（旧裸机写法）在 `ExecStart=podman run` 形态下**不会进入容器**，前缀会静默退回默认 `v1`，症状是"客户端健康、所有隧道 400" | 客户端单元改用 `podman run -e`；§4.3、§6.5 明确记录 |
+| 19 | **高** | `[Service]` 段 `Environment=WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=…`（旧裸机写法）在 `ExecStart=podman run` 形态下**不会进入容器**，前缀会静默退回默认 `v1`，症状是"客户端健康、所有隧道 400" | 当时改为 `podman run -e`（这条结论本身仍成立：env 形态只有 `-e`/`--env-file`/Quadlet `Environment=` 有效）；现已进一步改成命令行 `-P`，整类消掉该坑，见 §7.9 #43 |
 | 20 | **高** | `-L tcp://0.0.0.0:PORT` 在 bridge 网络下只绑容器 netns，宿主机与局域网都访问不到这 6 个端口 | `--network host`（本方案），或 bridge + 6 条 `-p`（仅 TCP）；`podman ps --port` 在 host 模式下看不到端口，改查 `ss -lntp` |
 | 21 | 中 | `--network host` + `0.0.0.0` + 隧道端口本身无鉴权 ⇒ 6 个开放代理端口直接摊到宿主机全部网卡 | §4.5 要求防火墙按源网段白名单或改绑具体网卡 IP |
 | 22 | 中 | 镜像 `USER app` + rootless uid 映射 ⇒ 600 的 `auth.txt` 读不到；SELinux 还需标签 | `--user 0:0` + 卷 `,z`（§4.3 第 3、4 条）。**该前提现已不成立**：凭据改写入 unit 后客户端不再挂文件，见 §7.7 #35 |
@@ -592,15 +595,35 @@ python3 -c "import yaml;yaml.safe_load(open('/etc/wstunnel/restrictions.yaml'))"
 
 ### 7.8 源码取证：`!PathPrefix` 与客户端 `-P` 的关系（2026-11-28）
 
-结论先行：**服务端 `restrictions.yaml` 里的 `!PathPrefix` 只负责"校验"，不会反向告知客户端该发什么前缀**；客户端仍必须自己把前缀设成 `cdn-socket-stream`，只是本方案已通过 `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 等价传入，**命令行因此不需要再写 `-P`**（两者是同一配置的两条入口，同时出现时 `-P` 优先）。
+结论先行：**服务端 `restrictions.yaml` 里的 `!PathPrefix` 只负责"校验"，不会反向告知客户端该发什么前缀**；客户端仍必须自己把前缀设成 `cdn-socket-stream`，当时本方案已通过 `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 等价传入，**命令行因此不需要再写 `-P`**（两者是同一配置的两条入口，同时出现时 `-P` 优先）。紧随其后的 §7.9 记录了反向决定：为少一条注入链路，改回显式 `-P` 并删掉 `-e`；正因为 `-P` 优先，两处**不可**并存。
 
 | # | 级别 | 发现（基准 v11.1.0 源码） | 处理 |
 |---|---|---|---|
-| 40 | 中 | 客户端不给 `-P` 也不给 `-e` 时前缀取默认常量 `v1`（`src/config.rs:9` `DEFAULT_CLIENT_UPGRADE_PATH_PREFIX = "v1"`，`src/config.rs:154-161` 绑定 `-P/--http-upgrade-path-prefix`），发出的升级 URI 为 `/v1/events`，提取出的首段 `v1` 不命中 `^cdn-socket-stream$` → **HTTP 400**，症状是"容器健康、进程不退出、所有隧道全 400" | §2、§4.3 第 1 条、§6.5 已写明；unit 内注释显式说明 `-e` 与 `-P` 等价，避免有人误以为服务端配了前缀客户端就可省 |
+| 40 | 中 | 客户端 `-P` 与 `-e` 都不给时前缀取默认常量 `v1`（`src/config.rs:9` `DEFAULT_CLIENT_UPGRADE_PATH_PREFIX = "v1"`，`src/config.rs:154-161` 绑定 `-P/--http-upgrade-path-prefix`），发出的升级 URI 为 `/v1/events`，提取出的首段 `v1` 不命中 `^cdn-socket-stream$` → **HTTP 400**，症状是"容器健康、进程不退出、所有隧道全 400" | §2、§4.3 第 1 条、§6.5 已写明；unit 内注释显式说明 `-e` 与 `-P` 等价，避免有人误以为服务端配了前缀客户端就可省 |
 | 41 | 信息 | `!PathPrefix` 正则的匹配对象是 `extract_path_prefix()` 剥离后的**首段**，不含 `/events` 后缀；`/x/events`、`/x/a/events`、`/x/a/b/events` 都提取为 `x`，缺 `events` 结尾直接 `BadUpgradeRequest`（`utils.rs:71-82` + 上游单测 `utils.rs:606-631`） | §3.7 新增"首段剥离"小节（含 file:line），`restrictions.yaml` 头注释同步线上请求路径与锚点写法说明 |
 | 42 | 信息 | `-r/--restrict-http-upgrade-path-prefix` 与 restrictions 之外的另一处前缀校验：比对同一首段，**精确相等**、非正则，且在 JWT 解析之前短路（`server.rs:115`、`120-127`）；另外 mTLS 下未显式给前缀时会自动采用客户端证书 CN（`lib.rs:72-81`） | §3.6/§3.7/§6.6 已有 `-r` 与 mTLS 提示，本轮补齐语义差异与 file:line |
 
-**未在本机验证的项**（本仓库所在容器无 podman、无 systemd 用户实例、无 `wstunnel` 二进制）：真实握手与转发、podman 卷权限与 SELinux 标签行为（含 `/etc` 下 `:z` 重标与 filetrans 继承，§7.6 #31）、只读 bind mount 上的 inotify 热加载、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的实际可见范围、`--network host` 下的端口监听、`podman auto-update` 重建流程、`%d` 说明符与 Quadlet `[Install]` 的版本相关行为、`-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 同时给出时命令行优先（依据 clap `env=` 仅在命令行缺省时取值的通用语义 + `config.rs:159` 的 `env=` 绑定推导，未在真二进制上跑对照实验）。上线前按 §5 全量跑一遍。已完成的本地验证：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。
+### 7.9 决策变更：暗号1 由环境变量 `-e` 改为命令行 `-P`（2026-11-28）
+
+采纳「`-P` 方案更稳妥」。客户端单元的 `-e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream` 已删除，改为 `client` 子命令后紧跟 `-P cdn-socket-stream`；两条暗号因此在**同一处、同一形态**（都在 `ExecStart` 里）。
+
+| 维度 | 命令行 `-P`（现方案） | 环境变量 `-e`（旧方案） |
+|---|---|---|
+| 注入链路 | 只有 `ExecStart` 一条 | `[Service] Environment=`（无效）→ 必须 `-e`/`--env-file`/Quadlet `Environment=`，多一层可写错的地方 |
+| 与手工验收、裸机写法 | 逐字一致，照抄命令不会漏参 | §5 用例、§4.7 裸机要各写一种形态 |
+| 可核对性 | `systemctl cat`、`podman inspect --format '{{json .Config.Cmd}}'`、`cat /proc/<pid>/cmdline` 三处都是同一串 | 需查 `.Config.Env`，与命令行形态混用时容易看错地方 |
+| 暴露面 | argv 明文，`ps` 可见 | 进程环境，`/proc/<pid>/environ` 仅同 uid/root 可读 |
+| 静默失效风险 | 若日后又加了 `-e`，**`-P` 会赢**，env 值静默无效 | 若误写成 unit 的 `Environment=`，值静默不进容器 → 退回 `v1` |
+| 结论 | ✅ 前缀敏感度低于密码，且暗号2 早已在 argv（#36），换 `-P` 不新增实际暴露面 | 保留为可选入口，不推荐与本方案并存 |
+
+| # | 级别 | 发现 / 连带影响 | 处理 |
+|---|---|---|---|
+| 43 | 中 | 决策变更本体：暗号1 改由 `-P` 提供，`-e` 删除。#19 那个「`[Service] Environment=` 不进容器」的坑由「记住要用 `-e`」变成「压根不用环境变量」，属于消类而非缓解 | 客户端 unit、§2、§4 对照表、§4.3 第 1 条、§4.4、§4.6、§4.7、§5 ⑦、§6.1、§6.2、§6.5 全量同步 |
+| 44 | 中 | 新引入的反向风险：`-P` 优先于 env，若两处并存则 env 静默无效；反过来只查 `.Config.Env` 会误判「前缀没生效」 | unit 注释与 §4.4 明确「只写一个、不可并存」；§6.5 400 那行给出 `podman inspect … .Config.Cmd` 的实际 argv 复核法 |
+| 45 | 低 | §4.6 Quadlet 示例原本用 `[Container] Environment=`（该写法在 Quadlet 里确实进容器，与 unit 的 `[Service] Environment=` 不同），与 unit 形态不一致会造成两套抄写模板漂移 | 示例改为 `Exec=/home/app/wstunnel client -P cdn-socket-stream …`，并注明两种入口在本方案里二选一 |
+| 46 | 信息 | 简化收益：§6.1（换密码）与 §6.2（换前缀）在客户端侧的操作步骤完全合并为「改 unit → `daemon-reload` → `restart`」，不再区分「一个热一个不热」；§5 用例 ⑦ 与单元 `ExecStart` 同形态，复制即用 | 文档相应段落合并改写；历史条目 #19、§7.8 保留原结论并加指向，不改写历史 |
+
+**未在本机验证的项**（本仓库所在容器无 podman、无 systemd 用户实例、无 `wstunnel` 二进制）：真实握手与转发、podman 卷权限与 SELinux 标签行为（含 `/etc` 下 `:z` 重标与 filetrans 继承，§7.6 #31）、只读 bind mount 上的 inotify 热加载、`install -Dm600` 后 `systemctl --user show -p ExecStart` 的实际可见范围、`--network host` 下的端口监听、`podman auto-update` 重建流程、`%d` 说明符与 Quadlet `[Install]` 的版本相关行为、`-P` 与 `WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX` 同时给出时命令行优先（依据 clap `env=` 仅在命令行缺省时取值的通用语义 + `config.rs:159` 的 `env=` 绑定推导，未在真二进制上跑对照实验；本方案已统一用 `-P`，可用 `podman inspect` 复核生效值，见 §6.5）。上线前按 §5 全量跑一遍。已完成的本地验证：`systemd-analyze verify` 通过 `container-wstunnel-server.service` 与 `container-wstunnel-client.service` 两个单元（仅报二进制与 `man:podman-generate-systemd(1)` 缺失，属环境因素）；`restrictions.yaml` 经 PyYAML（含 `!Tag` 自定义标签）解析确认结构正确、6 条规则与映射表一一对应；`printf 'wstunnel:Wstunnel-2026' | base64` 与配置中的串逐字节一致。
 
 ## 8. 附件（本目录）
 

@@ -8,8 +8,8 @@
 #   · !PathPrefix 比对的是升级 URI 的「首段」而非完整路径：客户端固定发 GET /<前缀>/events，
 #     服务端 extract_path_prefix() 只取第一段去匹配（源码 utils.rs:71-82 + 单测 606-631）。
 #     ⇒ 下面写 ^cdn-socket-stream$ 是对的（正则对象不含 /events）；写成 ^cdn-socket-stream/events$ 永不命中。
-#     ⇒ 服务端这里只是「校验」，不会替客户端决定前缀：客户端仍必须自己带 -P 或环境变量，
-#       否则前缀退回默认 v1（config.rs:9）→ 请求 /v1/events → 这里不命中 → 400
+#     ⇒ 服务端这里只是「校验」，不会替客户端决定前缀：客户端仍必须自己带 -P（本方案）或
+#       WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX，否则前缀退回默认 v1（config.rs:9）→ 请求 /v1/events → 400
 #   · match 内是逻辑与(AND)：路径前缀与 Authorization 必须同时命中
 #   · allow  内是逻辑或(OR)：命中任一 !Tunnel 即放行；多个 restriction 之间按顺序取第一条命中
 #   · port / protocol 留空或不写 = 该维度不限制（所以一定要写，否则等于放开）
@@ -20,8 +20,9 @@
 #     ⇒ 每条规则起个可读的名字，排查时能直接看出是哪条放行的
 #
 # 双重暗号（缺一即拒）
-#   1) 路径前缀  cdn-socket-stream          客户端 -P 或 WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX（二者等价、二选一，
-#                                            本方案客户端单元用 -e 传环境变量）⇒ 线上 GET /cdn-socket-stream/events
+#   1) 路径前缀  cdn-socket-stream          客户端单元里写死 -P cdn-socket-stream（环境变量入口
+#                                            WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX 存在，但会被 -P 覆盖，勿两处并存）
+#                                            ⇒ 线上 GET /cdn-socket-stream/events
 #   2) Basic     wstunnel:Wstunnel-2026  base64 = d3N0dW5uZWw6V3N0dW5uZWwtMjAyNg==
 #
 # 未声明 !ReverseTunnel ⇒ 反向隧道(-R) 一律禁止。
