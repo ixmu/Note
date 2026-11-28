@@ -1,7 +1,20 @@
 # wstunnel 客户端 Podman 容器 systemd unit · 基准 wstunnel v11.1.0
-# 形态与 container-wstunnel-server.service（服务端）成对，等同 podman generate systemd --name wstunnel-client --files 的输出
-# 安装: install -Dm644 container-wstunnel-client.service ~/.config/systemd/user/
+# 镜像与服务端单元同一个（ghcr.io/erebe/wstunnel），区别只在结尾的子命令：本文件 client，服务端 server
+#   —— 缺镜像名会把 /home/app/wstunnel 当成镜像去解析并报 no such image，两个单元都要写全
+# 形态与 container-wstunnel-server.service 成对，等同 podman generate systemd --name wstunnel-client --files 的输出
+# 安装: install -Dm600 container-wstunnel-client.service ~/.config/systemd/user/   ← 必须 600，暗号2 写在文件里
 # 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-client.service
+#
+# 暗号2（Basic 凭据）直接写在本文件里 ⇒ 四条连带结论：
+#   1. 客户端不挂任何宿主机文件：不需要 /etc/wstunnel 目录，也不需要 --user 0:0 与卷的 ,z 标签
+#      （容器按镜像默认 USER app/uid1000 跑即可；服务端因为要读 600 私钥仍然保留那两项）
+#   2. install -Dm600 只挡"读文件"；同机其他用户仍能从 ps -ef、/proc/<容器主进程>/cmdline、
+#      systemctl --user show -p ExecStart、podman inspect 看到明文 ⇒ 多用户机器改回
+#      --http-headers-file /etc/wstunnel/auth.txt，并把 -v /etc/wstunnel:/etc/wstunnel:ro,z
+#      和 --user 0:0 一起加回来（见 README §4.1）
+#   3. 换密码必须 daemon-reload + restart（文件方案是每请求重读，可不重启）
+#   4. 上游没有 http-upgrade 凭据的环境变量（v11.1.0 只有 WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX、
+#      WSTUNNEL_HTTP_PROXY_LOGIN/_PASSWORD 等），所以没法用 -e 把它从 argv 挪走
 [Unit]
 Description=Podman container-wstunnel-client.service
 Documentation=man:podman-generate-systemd(1)
@@ -23,16 +36,7 @@ TimeoutStopSec=70
 #   也不受 rootless 端口转发只有 TCP 的限制。用 bridge 网络时请改成
 #   --network podmanv6 并逐条 -p 2223:2223 -p 10000:10000 -p 10001:10001 \
 #   -p 8101:8101 -p 5002:5002 -p 55689:55689（-p 与 --network host 同时出现会被忽略/报错）
-# ⚠ --user 0:0：镜像是 USER app(uid 1000)，rootless 下它映射到的宿主机 uid 读不到 600 的
-#   auth.txt；--user 0:0 让容器内 root 即部署者本人，凭据文件保持 600 也能读
-# 镜像与服务端单元同一个（ghcr.io/erebe/wstunnel），区别只在结尾的子命令：本文件是 client，服务端是 server
-#   —— 缺镜像名会把 /home/app/wstunnel 当成镜像去解析并报错，两个单元都要写全
-#   （/etc/wstunnel 是两端统一的配置根目录：服务端机器放证书+restrictions.yaml，
-#    客户端机器只放 auth.txt；两端同机时私钥也会被这个只读挂载带进客户端容器，需要隔离见 README §3.1）
-# ⚠ ,z 后缀：SELinux enforcing 时 bind mount 需要安全标签（getenforce 确认；
-#   :z 共享标签，:Z 独占）。不用凭据落盘方案时可整行删掉 -v
-# ⚠ 凭据落盘（防 ps 泄密）：见 README §4.2；若改用 --http-upgrade-credentials
-#   则把 --http-headers-file 那行换掉，并删掉 -v 挂载
+# ⚠ 6 个本地端口 = 无鉴权的开放代理口，防火墙按源网段收紧或改绑具体网卡 IP，见 README §4.5
 ExecStart=/usr/bin/podman run \
         --cidfile=%t/%n.ctr-id \
         --cgroups=no-conmon \
@@ -43,12 +47,10 @@ ExecStart=/usr/bin/podman run \
         --name wstunnel-client \
         --label io.containers.autoupdate=registry \
         --network host \
-        --user 0:0 \
         -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream \
-        -v /etc/wstunnel:/etc/wstunnel:ro,z \
         ghcr.io/erebe/wstunnel:latest /home/app/wstunnel client \
         --tls-verify-certificate \
-        --http-headers-file /etc/wstunnel/auth.txt \
+        --http-upgrade-credentials 'wstunnel:Wstunnel-2026' \
         -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 \
         -L tcp://0.0.0.0:10001:hk.rp.linkup.onl:10000 \
         -L tcp://0.0.0.0:10000:43.134.70.211:9999 \
@@ -59,7 +61,8 @@ ExecStart=/usr/bin/podman run \
 # 可选：中间设备回收空闲连接导致频繁重连时加 --websocket-ping-frequency 15s
 # 可选：本机 IPv6 异常、连接偏慢时加 --dns-resolver-prefer-ipv4
 # 可选：镜像未预拉取时首启会隐式 pull；要严格离线用 --pull=never
-# 可选：上 mTLS 时再挂客户端证书并加 --tls-certificate/--tls-private-key（同 :ro,z 处理）
+# 可选：上 mTLS 时加 --tls-certificate/--tls-private-key，此时要挂证书
+#   （补 -v /etc/wstunnel:/etc/wstunnel:ro,z 与 --user 0:0，同服务端 §3.3 的处理）
 ExecStop=/usr/bin/podman stop \
         --ignore -t 10 \
         --cidfile=%t/%n.ctr-id
