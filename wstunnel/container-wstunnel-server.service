@@ -4,6 +4,10 @@
 #     （那条命令给出的是 container-wstunnel.service）；想让生成器可复现就同步改 --name，见 README §3.5
 # 安装: install -Dm644 container-wstunnel-server.service ~/.config/systemd/user/
 # 自检: systemd-analyze --user verify ~/.config/systemd/user/container-wstunnel-server.service
+# 配置目录与服务端/客户端统一为 /etc/wstunnel（证书 + restrictions.yaml），bind mount 只读
+# ⚠ --user 0:0：镜像是 USER app(uid 1000)，rootless 下它映射到的宿主机 uid 读不到属主为你的 600 私钥；
+#   --user 0:0 让容器内 root 即部署者本人（不是宿主机 root）。目录属主见 README §3.1/§3.2
+# ⚠ ,z：SELinux enforcing 下 bind mount 需要安全标签（getenforce 确认；:z 共享标签，:Z 独占）
 [Unit]
 Description=Podman container-wstunnel-server.service
 Documentation=man:podman-generate-systemd(1)
@@ -26,10 +30,11 @@ ExecStart=/usr/bin/podman run \
         --label io.containers.autoupdate=registry \
         --network podmanv6 \
         -p 55443:55443 \
-        -v /opt/wstunnel:/opt/wstunnel:rw ghcr.io/erebe/wstunnel:latest /home/app/wstunnel server \
-        --tls-certificate /opt/wstunnel/fullchain.pem \
-        --tls-private-key /opt/wstunnel/privkey.pem \
-        --restrict-config /opt/wstunnel/restrictions.yaml wss://[::]:55443
+        --user 0:0 \
+        -v /etc/wstunnel:/etc/wstunnel:ro,z ghcr.io/erebe/wstunnel:latest /home/app/wstunnel server \
+        --tls-certificate /etc/wstunnel/fullchain.pem \
+        --tls-private-key /etc/wstunnel/privkey.pem \
+        --restrict-config /etc/wstunnel/restrictions.yaml wss://[::]:55443
 ExecStop=/usr/bin/podman stop \
         --ignore -t 10 \
         --cidfile=%t/%n.ctr-id

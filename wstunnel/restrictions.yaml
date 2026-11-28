@@ -1,4 +1,5 @@
 # wstunnel 服务端白名单授权配置（server 端 --restrict-config 指向本文件）
+# 落地路径: /etc/wstunnel/restrictions.yaml（与服务端单元里的 -v /etc/wstunnel:/etc/wstunnel:ro,z 对应）
 # 语法基准: wstunnel v11.1.0 · 上游参考 restrictions.yaml
 #   https://github.com/erebe/wstunnel/blob/main/restrictions.yaml
 #

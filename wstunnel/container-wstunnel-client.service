@@ -25,6 +25,10 @@ TimeoutStopSec=70
 #   -p 8101:8101 -p 5002:5002 -p 55689:55689（-p 与 --network host 同时出现会被忽略/报错）
 # ⚠ --user 0:0：镜像是 USER app(uid 1000)，rootless 下它映射到的宿主机 uid 读不到 600 的
 #   auth.txt；--user 0:0 让容器内 root 即部署者本人，凭据文件保持 600 也能读
+# 镜像与服务端单元同一个（ghcr.io/erebe/wstunnel），区别只在结尾的子命令：本文件是 client，服务端是 server
+#   —— 缺镜像名会把 /home/app/wstunnel 当成镜像去解析并报错，两个单元都要写全
+#   （/etc/wstunnel 是两端统一的配置根目录：服务端机器放证书+restrictions.yaml，
+#    客户端机器只放 auth.txt；两端同机时私钥也会被这个只读挂载带进客户端容器，需要隔离见 README §3.1）
 # ⚠ ,z 后缀：SELinux enforcing 时 bind mount 需要安全标签（getenforce 确认；
 #   :z 共享标签，:Z 独占）。不用凭据落盘方案时可整行删掉 -v
 # ⚠ 凭据落盘（防 ps 泄密）：见 README §4.2；若改用 --http-upgrade-credentials
@@ -42,7 +46,7 @@ ExecStart=/usr/bin/podman run \
         --user 0:0 \
         -e WSTUNNEL_HTTP_UPGRADE_PATH_PREFIX=cdn-socket-stream \
         -v /etc/wstunnel:/etc/wstunnel:ro,z \
-        /home/app/wstunnel client \
+        ghcr.io/erebe/wstunnel:latest /home/app/wstunnel client \
         --tls-verify-certificate \
         --http-headers-file /etc/wstunnel/auth.txt \
         -L tcp://0.0.0.0:2223:gw.pyproxy.com:2222 \
